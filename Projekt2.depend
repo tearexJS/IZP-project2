@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1636740001 source:c:\users\ondra\documents\c projects\bit1\projekt2\main.c
+	<stdio.h>
+	<stdlib.h>
+	<stdbool.h>
+
