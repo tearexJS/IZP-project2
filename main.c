@@ -1,27 +1,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 struct Set{
     char setType;
     int length;
     char** content;
+    int contentSize;
 };
 
 void AddIntoSet(struct Set *set, char content[]){
+    printf("Adding into set %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
+        PrintSet(set);
     set->length++; // increase length of set
+    if(set->length == 1){
+        set->contentSize=1;
+//        set->content = (char**)malloc(sizeof(char[100]));
+    }
     char **tmp = set->content; // copy original content into a temporary variable
+//    tmp = malloc(1 * sizeof(*set->content));
+//    for(int i = 0; i < set->length-1; i++){
+//        tmp[i]=set->content[i];
+//    }
 
+//    printf("Size of content: %d\n",sizeof(set->content));
+
+//    int contentSize = sizeof(content)/sizeof(content[0]);
+//    const char contentConst[contentSize];
+//    strcpy(contentConst,content);
+//    char contentNew[contentSize];
+//    strcpy(contentNew, contentConst);
+//    for (int i = 0; i < contentSize; i++){
+//        contentNew[i]=content[i];
+//    }
+//    char string2[50];
+//  const char *end = "the end";
+//  strcpy(string2, content);
+//  strcat(string2, end);
+//  contentNew = end;
 
     set->content = malloc(1 * sizeof(*set->content));
     if (set->content)
     {
-        char** tmp2 = realloc(set->content, 2 * sizeof(*set->content)); // creating a new array with bigger size
+        bool needToResize = true;
+        if(set->contentSize <= set->length)
+            needToResize = true;
+        char** tmp2 = needToResize ? realloc(set->content, 2 * sizeof(*set->content)) : set->content; // creating a new array with bigger size
         if (tmp2) // if it was actually created (memory allocated)
         {
+            if(needToResize) set->contentSize *= 2;
+            printf("Created tmp2 while adding %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
+        PrintSet(set);
             set->content = tmp2;
             for(int i = 0; i < set->length-1; i++){ // copy all from the previous array
                 set->content[i]=tmp[i];
+//                printf("Content item n. %d is %s\n", i, set->content[i]);
             }
 //            char nContent[101];
 //            for(int i = 0; i < 100 && content[i]!='\0'; i++){
@@ -29,9 +63,17 @@ void AddIntoSet(struct Set *set, char content[]){
 //                nContent[i+1] = '\0';
 //            }
             set->content[set->length-1] = content; // finally the new value
+//            free(tmp2);
+            printf("Added into set %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
+        PrintSet(set);
         }
+//        free(tmp);
+        printf("Freed tmp while adding %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
+        PrintSet(set);
     }
     // found at https://stackoverflow.com/questions/12917727/resizing-an-array-in-c, edited for my purpose
+
+    PrintSet(set);
 }
 
 bool CompareStrings(char a[], char b[]){
@@ -77,7 +119,8 @@ void RemoveFromSet(struct Set *set, char *content){
 void PrintSet(struct Set *set){
     printf("%c ", set->setType);
     for(int i = 0; i < set->length; i++){
-        printf ("%s ", set->content[i]);
+        char* now = set->content[i];
+        printf ("%s ", now);
     }
     printf("\n");
 }
@@ -114,6 +157,25 @@ bool IsSet(struct Set *set){
     return true;
 }
 
+// check if the set is empty
+bool IsEmpty(struct Set *s){
+    return false;
+}
+
+// Print the number of members in the set
+int Card(struct Set *s){
+    return s->length;
+}
+
+void Complement(struct Set *ret, struct Set *s, struct Set *u){
+    ret->length=0;
+    ret->setType='S';
+    for(int i = 0; i < s->length; i++){
+        if(!IsInSet(s->content[i], u))
+            AddIntoSet(ret, s->content[i]);
+    }
+}
+
 int main()
 {
     struct Set sets[1000];
@@ -122,19 +184,30 @@ int main()
     FILE *file;
     file = fopen(inputFileName, "r");
     if(file != NULL){
-        struct Set now;
         bool named = false;
         char s[100];
         char ch = ' '; // will be space ' ' after each word, or '\n' after line ... for recognizing line endings
         while(fscanf(file, "%99s%c", &s, &ch) > 0){
-            printf("Prvni slovo souboru je '%s'\n", s);
+            printf("Ctu ze souboru '%s'\n", s);
             if(!named){
                 sets[setsCount].setType = s[0];
                 sets[setsCount].length = 0;
                 named = true;
             }
             else{
-                AddIntoSet(&sets[setsCount],s); // PROBLEM: s changes every time, so if s is added, it is changed the next iteration. in the end, the last s is everywhere
+                if(s[0]=='x')  {
+                    char test = 32;
+                }
+                printf("Gonna malloc s: %s: length=%d, contentSize=%d\n", s, sets[setsCount].length, sets[setsCount].contentSize);
+        PrintSet(&sets[setsCount]);
+                char *ns = malloc(strlen(s)+1);
+                printf("Malloced s: %s: length=%d, contentSize=%d\n", s, sets[setsCount].length, sets[setsCount].contentSize);
+        PrintSet(&sets[setsCount]);
+                strcpy(ns,s);
+                printf("Copied s: %s: length=%d, contentSize=%d\n", ns, sets[setsCount].length, sets[setsCount].contentSize);
+        PrintSet(&sets[setsCount]);
+                AddIntoSet(&sets[setsCount],ns); // PROBLEM: s changes every time, so if s is added, it is changed the next iteration. in the end, the last s is everywhere
+//                free(ns);
             }
             if(ch == '\n') {
 
