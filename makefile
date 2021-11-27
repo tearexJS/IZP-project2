@@ -1,7 +1,7 @@
 CFLAGS=-std=c99 -Wall -Wextra -Werror
-pwcheck: setcal.o
+setcal: setcal.o
 	gcc -o $@ $^
-pwcheck.o: setcal.c
-	gcc $(CFLAGS) -c $^ 
+setcal.o: setcal.c
+	gcc $(CFLAGS) -g -c $^ 
 clean: 
-	rm -rd *.o pwcheck
+	rm -rd *.o setcal
