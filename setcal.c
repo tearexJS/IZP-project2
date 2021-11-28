@@ -4,6 +4,7 @@
 #include <string.h>
 
 #define MAX_NUMBER_OF_ROWS 1000
+#define ROWS_TO_ALLOCATE 3
 #define CHUNK 30
 
 #define NOT_ENOUGH_ARGUMENTS 2
@@ -84,51 +85,6 @@ typedef struct
 //         printf("%s ", now);
 //     }
 //     printf("\n");
-// }
-
-// void addIntoSet(Set *set, char content[])
-// {
-//     printf("Adding into set %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
-//     printSet(set);
-//     set->length++; // increase length of set
-//     if (set->length == 1)
-//     {
-//         set->contentSize = 1;
-//         ;
-//     }
-//     char **tmp = set->content; // copy original content into a temporary variable
-
-//     set->content = malloc(1 * sizeof(*set->content));
-//     if (set->content)
-//     {
-//         bool needToResize = true;
-//         if (set->contentSize <= set->length)
-//             needToResize = true;
-//         char **tmp2 = needToResize ? realloc(set->content, 2 * sizeof(*set->content)) : set->content; // creating a new array with bigger size
-//         if (tmp2)                                                                                     // if it was actually created (memory allocated)
-//         {
-//             if (needToResize)
-//                 set->contentSize *= 2;
-//             printf("Created tmp2 while adding %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
-//             printSet(set);
-//             set->content = tmp2;
-//             for (int i = 0; i < set->length - 1; i++)
-//             { // copy all from the previous array
-//                 set->content[i] = tmp[i];
-//             }
-
-//             set->content[set->length - 1] = content; // finally the new value
-//                                                      //            free(tmp2);
-//             printf("Added into set %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
-//             printSet(set);
-//         }
-//         //        free(tmp);
-//         printf("Freed tmp while adding %s: length=%d, contentSize=%d\n", content, set->length, set->contentSize);
-//         printSet(set);
-//     }
-//     // found at https://stackoverflow.com/questions/12917727/resizing-an-array-in-c, edited for my purpose
-
-//     printSet(set);
 // }
 
 // bool isInSet(char *content, Set *set)
@@ -227,7 +183,7 @@ typedef struct
 //             addIntoSet(ret, s->content[i]);
 //     }
 // }
-// parsing the input arguments
+
 void printContent(char **content, int length)
 {
     for(int i = 0; i < length; i++)
@@ -236,15 +192,11 @@ void printContent(char **content, int length)
     }
     printf("\n");
 }
-void print(Row *rows)
+void print(Row *rows, int rowsCount)
 {
-    for(int i = 0; i < MAX_NUMBER_OF_ROWS; i++)
+    for(int i = 0; i < rowsCount; i++)
     {
-        if(rows[i].type == SET || rows[i].type == UNI)
-            printContent(rows[i].set.content, rows[i].set.length);
-        else
-            break;
-
+        printContent(rows[i].set.content, rows[i].set.length);
     } 
 }
 int parseArgs(int argc, char **argv, char **filename)
@@ -274,16 +226,19 @@ int getContentSize(char *line)
         if (line[i] == ' ')
             elementCounter++;
     }
-    return elementCounter+1;
+    return elementCounter;
 }
-// frees all dynamicaly allocated memory by utilizing the char *line attribute in data type Row
-int freeAll(Row *rows)
+// frees the dynamically allocated array of rows
+// takes 2 inputs the allocated array and the number of used elements 
+// loops through the used elements and frees the allocated memory
+int freeAll(Row *rows, int rowsCount)
 {
-    for(int i; i < MAX_NUMBER_OF_ROWS; i++)
+    for(int i = 0; i < rowsCount; i++)
     {
         free(rows[i].line);
         if(rows[i].type == UNI || rows[i].type == SET)
-        {    
+        {
+               
             free(rows[i].set.content);
         }
         else if (rows[i].type == REL)
@@ -295,6 +250,7 @@ int freeAll(Row *rows)
         //     free(rows[i].command.)
         // }
     }
+    free(rows);
     return 1;
 }
 // parsing the loaded line to extract elements and store them as a Set
@@ -305,7 +261,7 @@ int parseSet(Row *row, char *line)
     char **setContent = (char **)malloc(contentSize * sizeof(char*));
     int elementCounter = 0;
     int previousPosition = 2;
-
+    // FIXME: skips the last element
     for (int i = 2; line[i] != '\0'; i++)
     {
         if(line[i] == ' ')
@@ -316,7 +272,7 @@ int parseSet(Row *row, char *line)
             elementCounter++;
         }
     }
-    setContent[contentSize] = &line[previousPosition];
+    setContent[contentSize-1] = &line[previousPosition];
     row->set.content = setContent;
     row->set.length = elementCounter;
     return 1;
@@ -352,9 +308,9 @@ int parseType(Row *row, char *line)
 
 // loads the sets from file and further parses them by calling the parseType function
 // returns FILE_TOO_LONG if there are more than 1000 lines in the file
-// returns EMPTY_FILE if there are no lines the file
+// returns EMPTY_FILE if there are no lines in the file
 // returns 1 if everything went ok
-int loadSetsFromFile(Row *rows, FILE *fileptr, int *rowsCount)
+int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRowsCount)
 {
     int lineCounter = 0;
     int counter = 1;
@@ -363,15 +319,19 @@ int loadSetsFromFile(Row *rows, FILE *fileptr, int *rowsCount)
     {
         if (lineCounter < MAX_NUMBER_OF_ROWS && line[strlen(line) - 1] == '\n')
         {
-            
-            if (parseType(&rows[lineCounter], line) == INVALID_ARGUMENT)
+            if(lineCounter == *allocatedRowsCount-1)
             {
-                freeAll(rows);
+                *allocatedRowsCount += ROWS_TO_ALLOCATE;
+                *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
+            }
+            if (parseType(&(*rows)[lineCounter], line) == INVALID_ARGUMENT)
+            {
+                freeAll(*rows, lineCounter);
                 free(line);
                 return INVALID_ARGUMENT;
             }
-            
-            rows[lineCounter].line = line;
+
+            (*rows)[lineCounter].line = line;
             line = (char *)malloc(CHUNK);
             lineCounter++;
             counter = 1;
@@ -387,15 +347,16 @@ int loadSetsFromFile(Row *rows, FILE *fileptr, int *rowsCount)
     if (!lineCounter)
         ERROR("Empty file", EMPTY_FILE)
 
-    *rowsCount = ++lineCounter;
+    *rowsCount = lineCounter;
     return 1;
 }
 
 int main(int argc, char **argv)
 {
-    Row rows[MAX_NUMBER_OF_ROWS];
+    Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
+    int allocatedRowsCount = ROWS_TO_ALLOCATE;
     int rowsCount = 0;
-    char *filename;
+    char *filename = {'\0'};
     FILE *file = NULL;
 
     if (parseArgs(argc, argv, &filename) == NOT_ENOUGH_ARGUMENTS)
@@ -404,10 +365,10 @@ int main(int argc, char **argv)
     if (openFile(&file, filename) == CANNOT_OPEN_FILE)
         return CANNOT_OPEN_FILE;
 
-    if (loadSetsFromFile(rows, file, &rowsCount) == EMPTY_FILE)
+    if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) == EMPTY_FILE)
         return EMPTY_FILE;
-    print(rows);
-    freeAll(rows);
+    print(rows, rowsCount);
+    freeAll(rows, rowsCount);
     fclose(file);
     return 0;
 }
