@@ -253,6 +253,10 @@ int freeAll(Row *rows, int rowsCount)
     free(rows);
     return 1;
 }
+void removeEndLine(char *str)
+{
+    str[strlen(str)-1] = '\0';
+}
 // parsing the loaded line to extract elements and store them as a Set
 int parseSet(Row *row, char *line)
 {
@@ -261,7 +265,6 @@ int parseSet(Row *row, char *line)
     char **setContent = (char **)malloc(contentSize * sizeof(char*));
     int elementCounter = 0;
     int previousPosition = 2;
-    // FIXME: skips the last element
     for (int i = 2; line[i] != '\0'; i++)
     {
         if(line[i] == ' ')
@@ -272,9 +275,10 @@ int parseSet(Row *row, char *line)
             elementCounter++;
         }
     }
+    removeEndLine(&line[previousPosition]);
     setContent[contentSize-1] = &line[previousPosition];
     row->set.content = setContent;
-    row->set.length = elementCounter;
+    row->set.length = ++elementCounter;
     return 1;
 }
 // int parseRelation(Row *row, char *line)
