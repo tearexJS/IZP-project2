@@ -184,6 +184,18 @@ typedef struct
 //     }
 // }
 
+void printContentNoLength(char **content){
+//    int l = 0;
+//    int i = 0;
+//    while(l < sizeof(content)){
+//        printf("%s",content[i]);
+//        l+=sizeof(content[i]);
+//        i++;
+//    }
+    int l = sizeof(content)/sizeof(*content);
+    for(int i = 0; i <l; i++)
+        printf("%s",content[i]);
+}
 void printContent(char **content, int length)
 {
     for(int i = 0; i < length; i++)
@@ -197,7 +209,7 @@ void print(Row *rows, int rowsCount)
     for(int i = 0; i < rowsCount; i++)
     {
         printContent(rows[i].set.content, rows[i].set.length);
-    } 
+    }
 }
 int parseArgs(int argc, char **argv, char **filename)
 {
@@ -229,7 +241,7 @@ int getContentSize(char *line)
     return elementCounter;
 }
 // frees the dynamically allocated array of rows
-// takes 2 inputs the allocated array and the number of used elements 
+// takes 2 inputs the allocated array and the number of used elements
 // loops through the used elements and frees the allocated memory
 int freeAll(Row *rows, int rowsCount)
 {
@@ -238,7 +250,7 @@ int freeAll(Row *rows, int rowsCount)
         free(rows[i].line);
         if(rows[i].type == UNI || rows[i].type == SET)
         {
-               
+
             free(rows[i].set.content);
         }
         else if (rows[i].type == REL)
@@ -271,7 +283,7 @@ int parseSet(Row *row, char *line)
         {
             line[i] = '\0';
             setContent[elementCounter] = &line[previousPosition];
-            previousPosition = i+1; 
+            previousPosition = i+1;
             elementCounter++;
         }
     }
@@ -285,7 +297,7 @@ int parseSet(Row *row, char *line)
 // {
 
 // }
-// setting the type of row to universe, set, relation or command 
+// setting the type of row to universe, set, relation or command
 // if there is something else than the mentioned returns INVALID_ARGUMENT
 int parseType(Row *row, char *line)
 {
@@ -355,8 +367,108 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
     return 1;
 }
 
+//commands for sets
+//is the set empty?
+int setIsEmpty(Set *set){
+    if(set->length == 0)
+        return true;
+    return false;
+}
+//number of strings in the set
+int setCard(Set *set){
+    return set->length;
+}
+int setContainsString(Set *set, char *str){
+    for(int i = 0; i < set->length; i++){
+        if(strcmp(set->content[i],str))
+            return true;
+    }
+    return false;
+}
+//return string array of the complement, dont forget to free() after printing
+char **setComplement(Set *set, Set *uni){
+    char **ret = (char**)malloc(uni->length*sizeof(char*));
+    int index = 0;
+    for(int i = 0; i < set->length; i++){
+        if(setContainsString(uni, set->content[i]) == 0)
+        {
+            ret[index] = set->content[i];
+            index++;
+        }
+    }
+    ret = (char**)realloc(ret, index*(sizeof(char*)));
+    return ret;
+}
+//return a+b mixed, dont forget to free() after printing
+char **setUnion(Set *a, Set *b){
+    char **ret = (char**)malloc((a->length+b->length)*sizeof(char*));
+    int index = 0;
+    for(int i = 0; i < a->length; i++){
+        ret[index] = a->content[i];
+        index++;
+    }
+    for(int i = 0; i < b->length; i++){
+        if(setContainsString(a, b->content[i]) == 0)
+        {
+            ret[index] = b->content[i];
+            index++;
+        }
+    }
+    ret = (char**)realloc(ret, index*(sizeof(char*)));
+    return ret;
+}
+//return intersect (a && b), dont forget to free() after printing
+char **setIntersect(Set *a, Set *b){
+    char **ret = (char**)malloc(a->length*sizeof(char*));
+    int index = 0;
+    for(int i = 0; i < b->length; i++){
+        if(setContainsString(a, b->content[i]) == 1)
+        {
+            ret[index] = b->content[i];
+            index++;
+        }
+    }
+    ret = (char**)realloc(ret, index*(sizeof(char*)));
+    return ret;
+}
+//return a\b
+char **setMinus(Set *a, Set *b){
+    char **ret = (char**)malloc(a->length*sizeof(char*));
+    int index = 0;
+    for(int i = 0; i < a->length; i++){
+        if(setContainsString(b, a->content[i]) == 0)
+        {
+            ret[index] = a->content[i];
+            index++;
+        }
+    }
+    ret = (char**)realloc(ret, index*(sizeof(char*)));
+    return ret;
+}
+//is a subset or equal b
+bool setIsSubsetOrEq(Set *a, Set *b){
+    for(int i = 0; i < a->length; i++){
+        if(setContainsString(b, a->content[i]) == 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+//is a a subset of b, but not equal to b
+bool setIsSubset(Set *a, Set *b){
+    return a->length != b->length && setIsSubsetOrEq(a, b);
+}
+//are the two sets equal
+bool setEquals(Set *a, Set *b){
+    return a->length == b->length && setIsSubsetOrEq(a, b);
+}
+
 int main(int argc, char **argv)
 {
+    char *randomInput[] = {"ahoj", "prd", "test", "nevímnìcodlouhého"};
+    printContentNoLength(randomInput);
+
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
     int rowsCount = 0;
@@ -371,6 +483,7 @@ int main(int argc, char **argv)
 
     if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) == EMPTY_FILE)
         return EMPTY_FILE;
+
     print(rows, rowsCount);
     freeAll(rows, rowsCount);
     fclose(file);
