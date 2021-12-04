@@ -62,23 +62,15 @@ typedef struct
     int length;
     char **content;
 } Set;
-
 typedef struct
 {
     char *name;
 
-    Row *rows;
     int arg1;
     int arg2;
     int arg3;
 } CommandProperties;
 
-typedef struct
-{
-    char *name;
-    int (*func)(CommandProperties);
-    int argc;
-} Command;
 
 typedef struct
 {
@@ -94,6 +86,7 @@ typedef struct
 } Row;
 typedef struct
 {
+<<<<<<< HEAD
     char *name;
     int (*func)(CommandProperties, Row **);
     int argc;
@@ -107,6 +100,19 @@ void replaceSpaceWithZero(char *line)
             line[i] = '\0';
     }
 }
+=======
+    {"empty", setIsEmpty, 1},
+    {"complement", setComplement, 1},
+    {"card", setCard, 1},
+    {"union", setUnion, 2},
+    {"intersect", setIntersect, 2},
+    {"minus", setMinus, 2},
+    {"subseteq", setIsSubsetOrEq, 2},
+    {"subset", setIsSubset, 2},
+    {"equals", setEquals, 2}
+};
+int universumIndex = 0;
+>>>>>>> change Sets to CommandProperties - not tested yet
 // void printSet(Set *set)
 // {
 //     printf("%c ", set->type);
@@ -288,7 +294,7 @@ int openFile(FILE **file, char *filename)
         return 1;
     ERROR("Could not open given file", CANNOT_OPEN_FILE);
 }
-// returns the content size of the set
+
 int getContentSize(char *line)
 {
     int elementCounter = 0;
@@ -331,7 +337,6 @@ void removeEndLine(char *str)
 // parsing the loaded line to extract elements and store them as a Set
 int parseSet(Row *row, char *line)
 {
-
     int contentSize = getContentSize(line);
     char **setContent = (char **)malloc(contentSize * sizeof(char*));
     enum StateSet state = waitForSpace;
@@ -370,6 +375,7 @@ int parseSet(Row *row, char *line)
     }
     return 1;
 }
+
 // parsing relations utilizing a "state machine" and saving them as an array of Pairs
 // looping through the line and checking the parentheses and the spaces
 // calling the replaceSpaceWithZero at the end to ensure that every element of the pair is a signle string without spaces or )
@@ -480,11 +486,13 @@ int parseCommand(Row *row, char *line)
 }
 // setting the type of row to universe, set, relation or command 
 // if there is something else than the mentioned returns INVALID_ARGUMENT
-int parseType(Row *row, char *line)
+int parseType(Row *row, char *line, int index)
 {
     if (line[0] == 'U')
     {
         row->type = UNI;
+        universumIndex = malloc(sizeof(int));
+        universumIndex = index;
         return parseSet(row, line);
     }
     else if (line[0] == 'S')
@@ -538,7 +546,7 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
                 *allocatedRowsCount += ROWS_TO_ALLOCATE;
                 *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
             }
-            if (parseType(&(*rows)[lineCounter], line) != 1)
+            if (parseType(&(*rows)[lineCounter], line, lineCounter) != 1)
             {
                 freeAll(*rows, lineCounter);
                 free(line);
@@ -566,6 +574,7 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
 
 //commands for sets
 //is the set empty?
+<<<<<<< HEAD
 int setIsEmpty(CommandProperties props, Row **rows)
 {
     int arg = props.arg1-1;
@@ -589,6 +598,18 @@ int setIsEmpty(CommandProperties props, Row **rows)
 // {
 
 // }
+=======
+int setIsEmpty(CommandProperties *cp)
+{
+    if(setCard(cp) == 0)
+        return true;
+    return false;
+}
+//number of strings in the set
+int setCard(CommandProperties *cp){
+    return cp->rows[cp->arg1]->length;
+}
+>>>>>>> change Sets to CommandProperties - not tested yet
 int setContainsString(Set *set, char *str){
     for(int i = 0; i < set->length; i++){
         if(strcmp(set->content[i],str))
@@ -596,11 +617,16 @@ int setContainsString(Set *set, char *str){
     }
     return false;
 }
-// return string array of the complement, dont forget to free() after printing
+//return string array of the complement, dont forget to free() after printing
+<<<<<<< HEAD
+int setComplement(Set *set, Set *uni){
+    char **ret = (char**)malloc(uni->length*sizeof(char*));
+=======
 char **setComplement(CommandProperties *cp){
     Row *set = &cp->rows[cp->arg1];
     Row *uni = &cp->rows[universumIndex];
     char **ret = (char **)malloc(uni->length * sizeof(char *));
+>>>>>>> change Sets to CommandProperties - not tested yet
     int index = 0;
     for(int i = 0; i < set->length; i++){
         if(setContainsString(uni, set->content[i]) == 0)
@@ -612,7 +638,7 @@ char **setComplement(CommandProperties *cp){
     ret = (char**)realloc(ret, index*(sizeof(char*)));
     return ret;
 }
-// return a+b mixed, dont forget to free() after printing
+//return a+b mixed, dont forget to free() after printing
 char **setUnion(CommandProperties *cp){
     Row *a = &cp->rows[cp->arg1];
     Row *b = &cp->rows[cp->arg2];
@@ -692,7 +718,7 @@ bool setEquals(CommandProperties *cp){
 const Command commandList[1] = 
 {
     {"empty", setIsEmpty, 1},
-    // {"complement", setComplement, 1},
+    //{"complement", setComplement, 1},
     // {"card", setCard, 1},
     // {"union", setUnion, 2},
     // {"intersect", setIntersect, 2},
@@ -701,10 +727,6 @@ const Command commandList[1] =
     // {"subset", setIsSubset, 2},
     // {"equals", setEquals, 2}
 };
-// executes the commands utilizing function pointers 
-// loops through the const array where the func pointers are stored and executes the command which needs to be executed
-// returns the received value from the called function when something went wrong
-// returns 1 if everything went ok
 int executeCommands(Row **rows, int rowsCount)
 {
     for(int i = 0; i < rowsCount; i++)
@@ -734,8 +756,12 @@ int executeCommands(Row **rows, int rowsCount)
 }
 int main(int argc, char **argv)
 {
+<<<<<<< HEAD
+    // char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
+=======
     char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
-    printContentNoLength(randomInput);
+>>>>>>> change Sets to CommandProperties - not tested yet
+    // printContentNoLength(randomInput);
 
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
