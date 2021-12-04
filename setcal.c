@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
@@ -12,6 +13,7 @@
 #define EMPTY_FILE 4
 #define FILE_TOO_LONG 5
 #define INVALID_ARGUMENT 6
+#define TOO_MANY_ARGUMENTS 7
 
 #define ERROR(msg, errCode)       \
     {                             \
@@ -21,7 +23,14 @@
             return errCode;       \
         } while (0);              \
     }
-
+enum State
+{
+    waitForLParentheses,
+    readFirstElement,
+    waitForSecondElement,
+    readSecondElement,
+    waitForRParentheses
+};
 enum Type
 {
     UNI,
@@ -71,11 +80,23 @@ typedef struct
     {
         Set set;
         Relation relation;
-        Command command;
+        CommandProperties command;
     };
     char *line;
 } Row;
+const Command commandList[9] = 
+{
+    {"empty", empty, 1},
+    {"complement", complement, 1},
+    {"card", card, 1},
+    {"union", unionSets, 2},
+    {"intersect", intersect, 2},
+    {"minus", minus, 2},
+    {"subseteq", subseteq, 2},
+    {"subset", subset, 2},
+    {"equals", equals, 2}
 
+};
 // void printSet(Set *set)
 // {
 //     printf("%c ", set->type);
@@ -184,19 +205,7 @@ typedef struct
 //     }
 // }
 
-void printContentNoLength(char **content){
-//    int l = 0;
-//    int i = 0;
-//    while(l < sizeof(content)){
-//        printf("%s",content[i]);
-//        l+=sizeof(content[i]);
-//        i++;
-//    }
-    int l = sizeof(content)/sizeof(*content);
-    for(int i = 0; i <l; i++)
-        printf("%s",content[i]);
-}
-void printContent(char **content, int length)
+void printSetContent(char **content, int length)
 {
     for(int i = 0; i < length; i++)
     {
@@ -204,12 +213,37 @@ void printContent(char **content, int length)
     }
     printf("\n");
 }
+void printRelContent(Pair *pair, int pairCount)
+{
+    for(int i = 0; i < pairCount; i++)
+    {
+        printf("(%s ", pair[i].first);
+        printf("%s)", pair[i].second);
+        printf(" ");
+    }
+    printf("\n");
+}
 void print(Row *rows, int rowsCount)
 {
     for(int i = 0; i < rowsCount; i++)
     {
-        printContent(rows[i].set.content, rows[i].set.length);
-    }
+        if (rows[i].type == UNI)
+        {
+            printf("U ");
+            printSetContent(rows[i].set.content, rows[i].set.length);
+        }
+        else if (rows[i].type == SET)
+        {
+            printf("S ");
+            printSetContent(rows[i].set.content, rows[i].set.length);
+        }
+        else if (rows[i].type == REL)
+        {
+            printf("R ");
+            printRelContent(rows[i].relation.content, rows[i].relation.contentSize);
+        }
+        
+    } 
 }
 int parseArgs(int argc, char **argv, char **filename)
 {
@@ -241,7 +275,7 @@ int getContentSize(char *line)
     return elementCounter;
 }
 // frees the dynamically allocated array of rows
-// takes 2 inputs the allocated array and the number of used elements
+// takes 2 inputs the allocated array and the number of used elements 
 // loops through the used elements and frees the allocated memory
 int freeAll(Row *rows, int rowsCount)
 {
@@ -250,12 +284,12 @@ int freeAll(Row *rows, int rowsCount)
         free(rows[i].line);
         if(rows[i].type == UNI || rows[i].type == SET)
         {
-
+               
             free(rows[i].set.content);
         }
         else if (rows[i].type == REL)
         {
-            free(rows[i].relation.content[0].first);
+            free(rows[i].relation.content);
         }
         // else if (rows[i].type == COMMAND)
         // {
@@ -283,7 +317,7 @@ int parseSet(Row *row, char *line)
         {
             line[i] = '\0';
             setContent[elementCounter] = &line[previousPosition];
-            previousPosition = i+1;
+            previousPosition = i+1; 
             elementCounter++;
         }
     }
@@ -293,12 +327,124 @@ int parseSet(Row *row, char *line)
     row->set.length = ++elementCounter;
     return 1;
 }
-// int parseRelation(Row *row, char *line)
+void replaceSpaceWithZero(char *line)
+{
+    for(int i = 0; line[i] != '\0'; i++)
+    {
+        if(line[i] == ' ' || line[i] == ')')
+            line[i] = '\0';
+    }
+}
+// parsing relations utilizing a "state machine" and saving them as an array of Pairs
+// looping through the line and checking the parentheses and the spaces
+// calling the replaceSpaceWithZero at the end to ensure that every element of the pair is a signle string without spaces or )
+// returns 1 if everything went ok
+// returns INVALID_ARGUMENT if something is wrong with the relation format
+int parseRelation(Row *row, char *line)
+{
+    int pairCount = 1;
+    Pair *pair = (Pair *)malloc(pairCount * sizeof(Pair));
+    int iter = 2; // to begin at the first element of the relation
+    
+    enum State state = waitForLParentheses; 
+    while(line[iter] != '\n')
+    {
+        if(state == waitForLParentheses)
+        {
+            switch(line[iter])
+            {
+                case '(':
+                    state = readFirstElement; // signaling to read the first element of the pair in the next iteration
+                    break;
+                case ' ':
+                    state = waitForLParentheses;
+                    break;
+                default:
+                    ERROR("Invalid relation format", INVALID_ARGUMENT);
+            }
+        }
+        else if (state == readFirstElement)
+        {
+            if(isalnum(line[iter]))
+            {
+                pair[pairCount-1].first = &line[iter];
+                state = waitForSecondElement; // signaling to wait until the second element is reached
+            }
+            else
+                ERROR("Invalid relation format", INVALID_ARGUMENT);
+                
+        }
+        else if (state == waitForSecondElement)
+        {
+            switch(line[iter])
+            {
+                case ' ':
+                    state = readSecondElement; // signalig to read the second element in the next iteration
+                    break;
+                case ')':
+                    ERROR("Relation is not a pair", INVALID_ARGUMENT);
+                default:
+                    break;
+            }
+        }
+        else if (state == readSecondElement)
+        {
+            if(isalnum(line[iter]))
+            {
+                pair[pairCount-1].second = &line[iter];
+                state = waitForRParentheses; // signalit to expect ) in the next interation
+            }
+        }
+        else if (state == waitForRParentheses)
+        {
+            switch(line[iter])
+            {
+                case ')':
+                    pairCount++;
+                    pair = realloc(pair, pairCount*sizeof(Pair));
+                    state = waitForLParentheses; // signaling to wait until ( is reached
+                    break;
+                case ' ':
+                    ERROR("Invalid relation format", INVALID_ARGUMENT);
+            }
+        }
+        iter++;
+    }
+    replaceSpaceWithZero(line);
+    row->relation.content = pair;
+    row->relation.contentSize = pairCount-1;
+    return 1;
+}
+
+int parseCommand(Row *row, char *line)
+{
+    for(int i = 1; line[i]!='\0'; i++)
+    {
+        if(line[i] == ' ' && isalpha(line[i+1]))
+            row->command.name = &line[i+1];
+        else if (line[i] == ' ' && isdigit(line[i+1]))
+        {
+            if(!row->command.arg1)
+                row->command.arg1 = &line[i+1];
+            else if (!row->command.arg2)
+            {
+                row->command.arg2 = &line[i+2];
+            }
+            else
+                ERROR("Too many args", TOO_MANY_ARGUMENTS)
+        }
+        
+    }
+    replaceSpaceWithZero(line);
+    return 1;
+}
+// setting the type of row to universe, set, relation or command 
+// if there is something else than the mentioned returns INVALID_ARGUMENT
+// TODO: implement command parsing and function pointers
+// int parseCommand()
 // {
 
 // }
-// setting the type of row to universe, set, relation or command
-// if there is something else than the mentioned returns INVALID_ARGUMENT
 int parseType(Row *row, char *line)
 {
     if (line[0] == 'U')
@@ -314,10 +460,12 @@ int parseType(Row *row, char *line)
     else if (line[0] == 'R')
     {
         row->type = REL;
+        return parseRelation(row, line);
     }
     else if (line[0] == 'C')
     {
         row->type = COMMAND;
+        return parseCommand(row, line);
     }
     ERROR("Invalid argument", INVALID_ARGUMENT);
 }
@@ -329,10 +477,25 @@ int parseType(Row *row, char *line)
 int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRowsCount)
 {
     int lineCounter = 0;
-    int counter = 1;
+    int allocedLineLen = CHUNK;
+    int usedLineLen = 0;
+    char buffer[CHUNK];
     char *line = (char *)malloc(CHUNK);
-    while (fgets(line, CHUNK, fileptr))
+    while (fgets(buffer, CHUNK, fileptr))
     {
+        if(allocedLineLen <= (usedLineLen+1))
+        {
+            allocedLineLen += CHUNK;
+            line = realloc(line, allocedLineLen);
+            memcpy((line+usedLineLen), buffer, strlen(buffer));
+            usedLineLen = strlen(line);
+        }
+        else
+        {
+            strcpy(&line[usedLineLen], buffer);
+            usedLineLen = strlen(line);
+        }
+
         if (lineCounter < MAX_NUMBER_OF_ROWS && line[strlen(line) - 1] == '\n')
         {
             if(lineCounter == *allocatedRowsCount-1)
@@ -340,7 +503,7 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
                 *allocatedRowsCount += ROWS_TO_ALLOCATE;
                 *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
             }
-            if (parseType(&(*rows)[lineCounter], line) == INVALID_ARGUMENT)
+            if (parseType(&(*rows)[lineCounter], line) != 1)
             {
                 freeAll(*rows, lineCounter);
                 free(line);
@@ -350,7 +513,8 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
             (*rows)[lineCounter].line = line;
             line = (char *)malloc(CHUNK);
             lineCounter++;
-            counter = 1;
+            allocedLineLen = CHUNK;
+            usedLineLen = 0;
             continue;
         }
         else if (lineCounter > MAX_NUMBER_OF_ROWS)
@@ -481,7 +645,7 @@ int main(int argc, char **argv)
     if (openFile(&file, filename) == CANNOT_OPEN_FILE)
         return CANNOT_OPEN_FILE;
 
-    if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) == EMPTY_FILE)
+    if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) != 1)
         return EMPTY_FILE;
 
     print(rows, rowsCount);
