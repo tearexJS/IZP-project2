@@ -75,13 +75,6 @@ typedef struct
 
 typedef struct
 {
-    char *name;
-    int (*func)(CommandProperties);
-    int argc;
-} Command;
-
-typedef struct
-{
     enum Type type;
     union
     {
