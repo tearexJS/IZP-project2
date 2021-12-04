@@ -67,7 +67,6 @@ typedef struct
 {
     char *name;
 
-    Row *rows;
     int arg1;
     int arg2;
     int arg3;
