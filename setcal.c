@@ -544,7 +544,7 @@ int setCard(Set *set){
 }
 int setContainsString(Set *set, char *str){
     for(int i = 0; i < set->length; i++){
-        if(strcmp(set->content[i],str))
+        if(!strcmp(set->content[i],str))
             return true;
     }
     return false;
@@ -628,14 +628,14 @@ bool setEquals(Set *a, Set *b){
     return a->length == b->length && setIsSubsetOrEq(a, b);
 }
 
-//comands for relations
+//commands for relations
 //returns true if relation is reflexive, otherwise returns false
 bool isRelationReflexive(int universeLength, Relation *relation)
 {
     int matchCount = 0;
     for(int i = 0; i < relation->contentSize; i++)
     {
-        if(strcmp(relation.content[i].first, relation.content[i].second) == 0) matchCount++;
+        if(!strcmp(relation->content[i].first, relation->content[i].second)) matchCount++;
     }
     if(matchCount == universeLength) return true;
     else return false;
@@ -650,7 +650,7 @@ bool isRelationSymmetric(Relation *relation)
         symmetry = false;
         for(int j = 0; j < relation->contentSize && !symmetry; j++)
         {
-            if(strcmp(relation->content[i].first, relation->content[j].second) == 0 && strcmp(relation->content[i].second, relation->content[j].first) == 0) symmetry = true;
+            if(!strcmp(relation->content[i].first, relation->content[j].second) && !strcmp(relation->content[i].second, relation->content[j].first)) symmetry = true;
         }
         if(!symmetry) return false;
     }
@@ -666,7 +666,7 @@ bool isRelationAntisymmetric(Relation *relation)
         antisymmetry = true;
         for(int j = 0; j < relation->contentSize && antisymmetry; j++)
         {
-            if(strcmp(relation->content[i].first, relation->content[j].second) == 0 && strcmp(relation->content[i].second, relation->content[j].first) == 0 && strcmp(relation->content[i].first, relation->content[i].second) != 0) antisymmetry = false;
+            if(!strcmp(relation->content[i].first, relation->content[j].second) && !strcmp(relation->content[i].second, relation->content[j].first) && strcmp(relation->content[i].first, relation->content[i].second)) antisymmetry = false;
         }
         if(!antisymmetry) return false;
     }
@@ -687,13 +687,97 @@ bool isRelationTransitive(Relation *relation)
                 transitivity = false;
                 for(int k = 0; k < relation->contentSize && !transitivity; k++)
                 {
-                    if(strcmp(relation->content[i].first, relation->content[k].first) == 0 && strcmp(relation->content[j].second, relation->content[k].second) == 0) transitivity = true;
+                    if(!strcmp(relation->content[i].first, relation->content[k].first) && !strcmp(relation->content[j].second, relation->content[k].second)) transitivity = true;
                 }
             }
         }
         if(!transitivity) return false;
     }
     return true;
+}
+
+//returns true if relation is a function, otherwise returns false
+bool isRelationFunction(Relation *relation)
+{
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        for(int j = 0; j < relation->contentSize; j++)
+        {
+            if(!strcmp(relation->content[i].first, relation->content[j].first) && strcmp(relation->content[i].second, relation->content[j].second)) return false;
+        }
+    }
+    return true;
+}
+
+//returns the domain of the relation
+Set *findRelationDomain(Relation *relation)
+{
+    Set *domain = (Set *) malloc(sizeof(Set));
+    domain->length = 0;
+    domain->content = (char **) malloc(relation->contentSize * sizeof(char *));
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        if(!setContainsString(domain, relation->content[i].first))
+        {
+            domain->content[domain->length] = (char *) malloc(CHUNK * sizeof(char));
+            strcpy(domain->content[domain->length], relation->content[i].first);
+            domain->length++;
+        }
+    }
+    return domain;
+}
+
+//returns the codomain of the relation
+Set *findRelationCodomain(Relation *relation)
+{
+    Set *codomain = (Set *) malloc(sizeof(Set));
+    codomain->length = 0;
+    codomain->content = (char **) malloc(relation->contentSize * sizeof(char *));
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        if(!setContainsString(codomain, relation->content[i].second))
+        {
+            codomain->content[codomain->length] = (char *) malloc(CHUNK * sizeof(char));
+            strcpy(codomain->content[codomain->length], relation->content[i].second);
+            codomain->length++;
+        }
+    }
+    return codomain;
+}
+
+//returns true if relation is injective, otherwise returns false
+bool isRelationInjective(Relation *relation, Set *setA, Set *setB)
+{
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        if(!setContainsString(setA, relation->content[i].first) || !setContainsString(setB, relation->content[i].second)) return false;
+        for(int j = i + 1; j < relation->contentSize; j++)
+        {
+            if(!strcmp(relation->content[i].first, relation->content[j].first) || !strcmp(relation->content[i].second, relation->content[j].second)) return false;
+        }
+    }
+    return true;
+}
+
+//returns true if relation is surjective, otherwise returns false
+bool isRelationSurjective(Relation *relation, Set *setA, Set *setB)
+{
+    if(!setEquals(findRelationCodomain(relation), setB)) return false;
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        if(!setContainsString(setA, relation->content[i].first) || !setContainsString(setB, relation->content[i].second))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+//returns true if relation is injective (both injective and surjective), otherwise returns false
+bool isRelationBijective(Relation *relation, Set *setA, Set *setB)
+{
+    if(isRelationInjective(relation, setA, setB) && isRelationSurjective(relation, setA, setB)) return true;
+    return false;
 }
 
 int main(int argc, char **argv)
