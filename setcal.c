@@ -7,7 +7,7 @@
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
 #define CHUNK 30
-
+#define NUMBER_OF_COMMANDS 9
 #define NOT_ENOUGH_ARGUMENTS 2
 #define CANNOT_OPEN_FILE 3
 #define EMPTY_FILE 4
@@ -61,9 +61,9 @@ typedef struct
 {
     char *name;
 
-    void *arg1;
-    void *arg2;
-
+    Row *rows;
+    int arg1;
+    int arg2;
 } CommandProperties;
 
 typedef struct
@@ -84,18 +84,17 @@ typedef struct
     };
     char *line;
 } Row;
-const Command commandList[9] = 
+const Command commandList[NUMBER_OF_COMMANDS] = 
 {
-    {"empty", empty, 1},
-    {"complement", complement, 1},
-    {"card", card, 1},
-    {"union", unionSets, 2},
-    {"intersect", intersect, 2},
-    {"minus", minus, 2},
-    {"subseteq", subseteq, 2},
-    {"subset", subset, 2},
-    {"equals", equals, 2}
-
+    {"empty", setIsEmpty, 1},
+    {"complement", setComplement, 1},
+    {"card", setCard, 1},
+    {"union", setUnion, 2},
+    {"intersect", setIntersect, 2},
+    {"minus", setMinus, 2},
+    {"subseteq", setIsSubsetOrEq, 2},
+    {"subset", setIsSubset, 2},
+    {"equals", setEquals, 2}
 };
 // void printSet(Set *set)
 // {
@@ -204,7 +203,16 @@ const Command commandList[9] =
 //             addIntoSet(ret, s->content[i]);
 //     }
 // }
-
+int strToInt(char *str)
+{
+    char *endptr;
+    int num = strtol(str, &endptr, 10);
+    if (endptr != NULL)
+    {
+        return num;
+    }
+    return -1;
+}
 void printSetContent(char **content, int length)
 {
     for(int i = 0; i < length; i++)
@@ -418,33 +426,33 @@ int parseRelation(Row *row, char *line)
 
 int parseCommand(Row *row, char *line)
 {
+    char *arg1 = NULL;
+    char *arg2 = NULL;
     for(int i = 1; line[i]!='\0'; i++)
     {
         if(line[i] == ' ' && isalpha(line[i+1]))
             row->command.name = &line[i+1];
         else if (line[i] == ' ' && isdigit(line[i+1]))
         {
-            if(!row->command.arg1)
-                row->command.arg1 = &line[i+1];
-            else if (!row->command.arg2)
-            {
-                row->command.arg2 = &line[i+2];
-            }
+            if(!arg1)
+                arg1 = &line[i+1];
+            else if (!arg2)
+                arg2 = &line[i+2];
             else
                 ERROR("Too many args", TOO_MANY_ARGUMENTS)
         }
-        
     }
     replaceSpaceWithZero(line);
+    if(arg1)
+        row->command.arg1 = strToInt(arg1);
+    else
+        ERROR("Not enough args", NOT_ENOUGH_ARGUMENTS);
+    if(arg2)
+        row->command.arg2 = strToInt(arg2);
     return 1;
 }
 // setting the type of row to universe, set, relation or command 
 // if there is something else than the mentioned returns INVALID_ARGUMENT
-// TODO: implement command parsing and function pointers
-// int parseCommand()
-// {
-
-// }
 int parseType(Row *row, char *line)
 {
     if (line[0] == 'U')
@@ -520,8 +528,6 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
         else if (lineCounter > MAX_NUMBER_OF_ROWS)
             ERROR("File is too long", FILE_TOO_LONG);
 
-        counter++;
-        line = realloc(line, counter * CHUNK);
     }
     free(line);
     if (!lineCounter)
@@ -533,8 +539,9 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
 
 //commands for sets
 //is the set empty?
-int setIsEmpty(Set *set){
-    if(set->length == 0)
+int setIsEmpty(CommandProperties props)
+{
+    if(->length == 0)
         return true;
     return false;
 }
@@ -627,7 +634,10 @@ bool setIsSubset(Set *a, Set *b){
 bool setEquals(Set *a, Set *b){
     return a->length == b->length && setIsSubsetOrEq(a, b);
 }
-
+int executeCommands(Row *rows)
+{
+    for(int i = 0; i < 9; i++)
+}
 int main(int argc, char **argv)
 {
     char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
