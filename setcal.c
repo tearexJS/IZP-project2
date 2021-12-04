@@ -628,6 +628,74 @@ bool setEquals(Set *a, Set *b){
     return a->length == b->length && setIsSubsetOrEq(a, b);
 }
 
+//comands for relations
+//returns true if relation is reflexive, otherwise returns false
+bool isRelationReflexive(int universeLength, Relation *relation)
+{
+    int matchCount = 0;
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        if(strcmp(relation.content[i].first, relation.content[i].second) == 0) matchCount++;
+    }
+    if(matchCount == universeLength) return true;
+    else return false;
+}
+
+//returns true if relation is symmetric, otherwise returns false
+bool isRelationSymmetric(Relation *relation)
+{
+    bool symmetry;
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        symmetry = false;
+        for(int j = 0; j < relation->contentSize && !symmetry; j++)
+        {
+            if(strcmp(relation->content[i].first, relation->content[j].second) == 0 && strcmp(relation->content[i].second, relation->content[j].first) == 0) symmetry = true;
+        }
+        if(!symmetry) return false;
+    }
+    return true;
+}
+
+//returns true if relation is antisymmetric, otherwise returns false
+bool isRelationAntisymmetric(Relation *relation)
+{
+    bool antisymmetry;
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        antisymmetry = true;
+        for(int j = 0; j < relation->contentSize && antisymmetry; j++)
+        {
+            if(strcmp(relation->content[i].first, relation->content[j].second) == 0 && strcmp(relation->content[i].second, relation->content[j].first) == 0 && strcmp(relation->content[i].first, relation->content[i].second) != 0) antisymmetry = false;
+        }
+        if(!antisymmetry) return false;
+    }
+    return true;
+}
+
+//returns true if relation is transitive, otherwise returns false
+bool isRelationTransitive(Relation *relation)
+{   
+    bool transitivity;
+    for(int i = 0; i < relation->contentSize; i++)
+    {
+        transitivity = true;
+        for(int j = 0; j < relation->contentSize; j++)
+        {
+            if(strcmp(relation->content[i].second, relation->content[j].first) == 0)
+            {
+                transitivity = false;
+                for(int k = 0; k < relation->contentSize && !transitivity; k++)
+                {
+                    if(strcmp(relation->content[i].first, relation->content[k].first) == 0 && strcmp(relation->content[j].second, relation->content[k].second) == 0) transitivity = true;
+                }
+            }
+        }
+        if(!transitivity) return false;
+    }
+    return true;
+}
+
 int main(int argc, char **argv)
 {
     char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
