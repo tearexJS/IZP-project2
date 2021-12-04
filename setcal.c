@@ -466,7 +466,7 @@ bool setEquals(Set *a, Set *b){
 
 int main(int argc, char **argv)
 {
-    char *randomInput[] = {"ahoj", "prd", "test", "nevímnìcodlouhého"};
+    char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
     printContentNoLength(randomInput);
 
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
