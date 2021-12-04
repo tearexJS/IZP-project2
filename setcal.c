@@ -7,7 +7,7 @@
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
 #define CHUNK 30
-
+#define NUMBER_OF_COMMANDS 9
 #define NOT_ENOUGH_ARGUMENTS 2
 #define CANNOT_OPEN_FILE 3
 #define EMPTY_FILE 4
@@ -23,7 +23,7 @@
             return errCode;       \
         } while (0);              \
     }
-enum State
+enum StateRelation
 {
     waitForLParentheses,
     readFirstElement,
@@ -31,11 +31,17 @@ enum State
     readSecondElement,
     waitForRParentheses
 };
+enum StateSet
+{
+    waitForSpace,
+    readElement
+};
 enum Type
 {
     UNI,
     SET,
     REL,
+    OUT,
     COMMAND
 };
 
@@ -61,9 +67,10 @@ typedef struct
 {
     char *name;
 
-    void *arg1;
-    void *arg2;
-
+    Row *rows;
+    int arg1;
+    int arg2;
+    int arg3;
 } CommandProperties;
 
 typedef struct
@@ -81,22 +88,25 @@ typedef struct
         Set set;
         Relation relation;
         CommandProperties command;
+        bool outputValue; 
     };
     char *line;
 } Row;
-const Command commandList[9] = 
+typedef struct
 {
-    {"empty", empty, 1},
-    {"complement", complement, 1},
-    {"card", card, 1},
-    {"union", unionSets, 2},
-    {"intersect", intersect, 2},
-    {"minus", minus, 2},
-    {"subseteq", subseteq, 2},
-    {"subset", subset, 2},
-    {"equals", equals, 2}
+    char *name;
+    int (*func)(CommandProperties, Row **);
+    int argc;
+} Command;
 
-};
+void replaceSpaceWithZero(char *line)
+{
+    for(int i = 0; line[i] != '\0'; i++)
+    {
+        if(line[i] == ' ' || line[i] == ')')
+            line[i] = '\0';
+    }
+}
 // void printSet(Set *set)
 // {
 //     printf("%c ", set->type);
@@ -204,12 +214,24 @@ const Command commandList[9] =
 //             addIntoSet(ret, s->content[i]);
 //     }
 // }
-
+int strToInt(char *str)
+{
+    char *endptr;
+    int num = strtol(str, &endptr, 10);
+    if (endptr != NULL)
+    {
+        return num;
+    }
+    return -1;
+}
 void printSetContent(char **content, int length)
 {
-    for(int i = 0; i < length; i++)
+    if(length > 0)
     {
-        printf("%s ", content[i]);
+        for(int i = 0; i < length; i++)
+        {
+            printf("%s ", content[i]);
+        }
     }
     printf("\n");
 }
@@ -242,7 +264,10 @@ void print(Row *rows, int rowsCount)
             printf("R ");
             printRelContent(rows[i].relation.content, rows[i].relation.contentSize);
         }
-        
+        else if (rows[i].type == OUT)
+        {
+            rows[i].outputValue ? printf("true\n") : printf("false\n");
+        }
     } 
 }
 int parseArgs(int argc, char **argv, char **filename)
@@ -263,7 +288,7 @@ int openFile(FILE **file, char *filename)
         return 1;
     ERROR("Could not open given file", CANNOT_OPEN_FILE);
 }
-
+// returns the content size of the set
 int getContentSize(char *line)
 {
     int elementCounter = 0;
@@ -309,31 +334,41 @@ int parseSet(Row *row, char *line)
 
     int contentSize = getContentSize(line);
     char **setContent = (char **)malloc(contentSize * sizeof(char*));
+    enum StateSet state = waitForSpace;
     int elementCounter = 0;
-    int previousPosition = 2;
-    for (int i = 2; line[i] != '\0'; i++)
+
+    for (int i = 0; line[i] != '\0'; i++)
     {
-        if(line[i] == ' ')
+        if(state == waitForSpace)
         {
-            line[i] = '\0';
-            setContent[elementCounter] = &line[previousPosition];
-            previousPosition = i+1; 
+            switch (line[i])
+            {
+                case ' ':
+                    state = readElement;
+                    break;
+                default:
+                    state = waitForSpace;
+                    break;
+            }
+        }
+        else if(state == readElement && isalnum(line[i]))
+        {
+            setContent[elementCounter] = &line[i];
+            state = waitForSpace; 
             elementCounter++;
         }
     }
-    removeEndLine(&line[previousPosition]);
-    setContent[contentSize-1] = &line[previousPosition];
+    
     row->set.content = setContent;
-    row->set.length = ++elementCounter;
-    return 1;
-}
-void replaceSpaceWithZero(char *line)
-{
-    for(int i = 0; line[i] != '\0'; i++)
+    if(elementCounter == 0)
+        row->set.length = elementCounter;
+    else
     {
-        if(line[i] == ' ' || line[i] == ')')
-            line[i] = '\0';
+        row->set.length = elementCounter;
+        replaceSpaceWithZero(line);
+        removeEndLine(setContent[elementCounter-1]);
     }
+    return 1;
 }
 // parsing relations utilizing a "state machine" and saving them as an array of Pairs
 // looping through the line and checking the parentheses and the spaces
@@ -346,7 +381,7 @@ int parseRelation(Row *row, char *line)
     Pair *pair = (Pair *)malloc(pairCount * sizeof(Pair));
     int iter = 2; // to begin at the first element of the relation
     
-    enum State state = waitForLParentheses; 
+    enum StateRelation state = waitForLParentheses; 
     while(line[iter] != '\n')
     {
         if(state == waitForLParentheses)
@@ -418,33 +453,33 @@ int parseRelation(Row *row, char *line)
 
 int parseCommand(Row *row, char *line)
 {
+    char *arg1 = NULL;
+    char *arg2 = NULL;
     for(int i = 1; line[i]!='\0'; i++)
     {
         if(line[i] == ' ' && isalpha(line[i+1]))
             row->command.name = &line[i+1];
         else if (line[i] == ' ' && isdigit(line[i+1]))
         {
-            if(!row->command.arg1)
-                row->command.arg1 = &line[i+1];
-            else if (!row->command.arg2)
-            {
-                row->command.arg2 = &line[i+2];
-            }
+            if(!arg1)
+                arg1 = &line[i+1];
+            else if (!arg2)
+                arg2 = &line[i+2];
             else
                 ERROR("Too many args", TOO_MANY_ARGUMENTS)
         }
-        
     }
     replaceSpaceWithZero(line);
+    if(arg1)
+        row->command.arg1 = strToInt(arg1);
+    else
+        ERROR("Not enough args", NOT_ENOUGH_ARGUMENTS);
+    if(arg2)
+        row->command.arg2 = strToInt(arg2);
     return 1;
 }
 // setting the type of row to universe, set, relation or command 
 // if there is something else than the mentioned returns INVALID_ARGUMENT
-// TODO: implement command parsing and function pointers
-// int parseCommand()
-// {
-
-// }
 int parseType(Row *row, char *line)
 {
     if (line[0] == 'U')
@@ -520,8 +555,6 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
         else if (lineCounter > MAX_NUMBER_OF_ROWS)
             ERROR("File is too long", FILE_TOO_LONG);
 
-        counter++;
-        line = realloc(line, counter * CHUNK);
     }
     free(line);
     if (!lineCounter)
@@ -533,15 +566,29 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
 
 //commands for sets
 //is the set empty?
-int setIsEmpty(Set *set){
-    if(set->length == 0)
-        return true;
-    return false;
+int setIsEmpty(CommandProperties props, Row **rows)
+{
+    int arg = props.arg1-1;
+    int commandPos = props.arg3;
+
+    if((*rows)[arg].type == SET)
+    {
+        (*rows)[commandPos].type = OUT;
+        if((*rows)[arg].set.length == 0)
+        {
+            (*rows)[commandPos].outputValue = true;
+            return true;
+        }
+        (*rows)[commandPos].outputValue = false;
+        return false;
+    }
+    ERROR("There is no set on this line", INVALID_ARGUMENT);
 }
 //number of strings in the set
-int setCard(Set *set){
-    return set->length;
-}
+// int setCard(CommandProperties props)
+// {
+
+// }
 int setContainsString(Set *set, char *str){
     for(int i = 0; i < set->length; i++){
         if(strcmp(set->content[i],str))
@@ -549,9 +596,11 @@ int setContainsString(Set *set, char *str){
     }
     return false;
 }
-//return string array of the complement, dont forget to free() after printing
-char **setComplement(Set *set, Set *uni){
-    char **ret = (char**)malloc(uni->length*sizeof(char*));
+// return string array of the complement, dont forget to free() after printing
+char **setComplement(CommandProperties *cp){
+    Row *set = &cp->rows[cp->arg1];
+    Row *uni = &cp->rows[universumIndex];
+    char **ret = (char **)malloc(uni->length * sizeof(char *));
     int index = 0;
     for(int i = 0; i < set->length; i++){
         if(setContainsString(uni, set->content[i]) == 0)
@@ -563,8 +612,10 @@ char **setComplement(Set *set, Set *uni){
     ret = (char**)realloc(ret, index*(sizeof(char*)));
     return ret;
 }
-//return a+b mixed, dont forget to free() after printing
-char **setUnion(Set *a, Set *b){
+// return a+b mixed, dont forget to free() after printing
+char **setUnion(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     char **ret = (char**)malloc((a->length+b->length)*sizeof(char*));
     int index = 0;
     for(int i = 0; i < a->length; i++){
@@ -582,7 +633,9 @@ char **setUnion(Set *a, Set *b){
     return ret;
 }
 //return intersect (a && b), dont forget to free() after printing
-char **setIntersect(Set *a, Set *b){
+char **setIntersect(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     char **ret = (char**)malloc(a->length*sizeof(char*));
     int index = 0;
     for(int i = 0; i < b->length; i++){
@@ -596,7 +649,9 @@ char **setIntersect(Set *a, Set *b){
     return ret;
 }
 //return a\b
-char **setMinus(Set *a, Set *b){
+char **setMinus(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     char **ret = (char**)malloc(a->length*sizeof(char*));
     int index = 0;
     for(int i = 0; i < a->length; i++){
@@ -610,7 +665,9 @@ char **setMinus(Set *a, Set *b){
     return ret;
 }
 //is a subset or equal b
-bool setIsSubsetOrEq(Set *a, Set *b){
+bool setIsSubsetOrEq(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     for(int i = 0; i < a->length; i++){
         if(setContainsString(b, a->content[i]) == 0)
         {
@@ -620,14 +677,61 @@ bool setIsSubsetOrEq(Set *a, Set *b){
     return true;
 }
 //is a a subset of b, but not equal to b
-bool setIsSubset(Set *a, Set *b){
+bool setIsSubset(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     return a->length != b->length && setIsSubsetOrEq(a, b);
 }
 //are the two sets equal
-bool setEquals(Set *a, Set *b){
+bool setEquals(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     return a->length == b->length && setIsSubsetOrEq(a, b);
 }
 
+const Command commandList[1] = 
+{
+    {"empty", setIsEmpty, 1},
+    // {"complement", setComplement, 1},
+    // {"card", setCard, 1},
+    // {"union", setUnion, 2},
+    // {"intersect", setIntersect, 2},
+    // {"minus", setMinus, 2},
+    // {"subseteq", setIsSubsetOrEq, 2},
+    // {"subset", setIsSubset, 2},
+    // {"equals", setEquals, 2}
+};
+// executes the commands utilizing function pointers 
+// loops through the const array where the func pointers are stored and executes the command which needs to be executed
+// returns the received value from the called function when something went wrong
+// returns 1 if everything went ok
+int executeCommands(Row **rows, int rowsCount)
+{
+    for(int i = 0; i < rowsCount; i++)
+    {
+        if((*rows)[i].type == COMMAND)
+        {
+            for(int j = 0; j < 1; j++)
+            {
+                if(!strcmp(commandList[j].name, (*rows)[i].command.name))
+                {
+                    int arg1 = (*rows)[i].command.arg1-1;
+                    //int arg2 = rows[i].command.arg2;
+                    if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET)
+                    {
+                        
+                        (*rows)[i].command.arg3 = i;                       
+                        int recVal = commandList[j].func((*rows)[i].command, rows);
+                        if(recVal != 1)
+                            return recVal;
+
+                    }   
+                }
+            }
+        }
+    }
+    return 1;
+}
 int main(int argc, char **argv)
 {
     char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
@@ -647,8 +751,11 @@ int main(int argc, char **argv)
 
     if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) != 1)
         return EMPTY_FILE;
-
-    print(rows, rowsCount);
+    if(executeCommands(&rows, rowsCount) == 1)
+    {
+        print(rows, rowsCount);
+    }
+    
     freeAll(rows, rowsCount);
     fclose(file);
     return 0;
