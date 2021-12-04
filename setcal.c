@@ -62,15 +62,23 @@ typedef struct
     int length;
     char **content;
 } Set;
+
 typedef struct
 {
     char *name;
 
+    Row *rows;
     int arg1;
     int arg2;
     int arg3;
 } CommandProperties;
 
+typedef struct
+{
+    char *name;
+    int (*func)(CommandProperties);
+    int argc;
+} Command;
 
 typedef struct
 {
@@ -323,6 +331,7 @@ void removeEndLine(char *str)
 // parsing the loaded line to extract elements and store them as a Set
 int parseSet(Row *row, char *line)
 {
+
     int contentSize = getContentSize(line);
     char **setContent = (char **)malloc(contentSize * sizeof(char*));
     enum StateSet state = waitForSpace;
@@ -361,7 +370,6 @@ int parseSet(Row *row, char *line)
     }
     return 1;
 }
-
 // parsing relations utilizing a "state machine" and saving them as an array of Pairs
 // looping through the line and checking the parentheses and the spaces
 // calling the replaceSpaceWithZero at the end to ensure that every element of the pair is a signle string without spaces or )
@@ -589,8 +597,10 @@ int setContainsString(Set *set, char *str){
     return false;
 }
 //return string array of the complement, dont forget to free() after printing
-int setComplement(Set *set, Set *uni){
-    char **ret = (char**)malloc(uni->length*sizeof(char*));
+char **setComplement(CommandProperties *cp){
+    Row *set = &cp->rows[cp->arg1];
+    Row *uni = &cp->rows[universumIndex];
+    char **ret = (char **)malloc(uni->length * sizeof(char *));
     int index = 0;
     for(int i = 0; i < set->length; i++){
         if(setContainsString(uni, set->content[i]) == 0)
@@ -603,7 +613,9 @@ int setComplement(Set *set, Set *uni){
     return ret;
 }
 //return a+b mixed, dont forget to free() after printing
-char **setUnion(Set *a, Set *b){
+char **setUnion(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     char **ret = (char**)malloc((a->length+b->length)*sizeof(char*));
     int index = 0;
     for(int i = 0; i < a->length; i++){
@@ -621,7 +633,9 @@ char **setUnion(Set *a, Set *b){
     return ret;
 }
 //return intersect (a && b), dont forget to free() after printing
-char **setIntersect(Set *a, Set *b){
+char **setIntersect(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     char **ret = (char**)malloc(a->length*sizeof(char*));
     int index = 0;
     for(int i = 0; i < b->length; i++){
@@ -635,7 +649,9 @@ char **setIntersect(Set *a, Set *b){
     return ret;
 }
 //return a\b
-char **setMinus(Set *a, Set *b){
+char **setMinus(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     char **ret = (char**)malloc(a->length*sizeof(char*));
     int index = 0;
     for(int i = 0; i < a->length; i++){
@@ -649,7 +665,9 @@ char **setMinus(Set *a, Set *b){
     return ret;
 }
 //is a subset or equal b
-bool setIsSubsetOrEq(Set *a, Set *b){
+bool setIsSubsetOrEq(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     for(int i = 0; i < a->length; i++){
         if(setContainsString(b, a->content[i]) == 0)
         {
@@ -659,11 +677,15 @@ bool setIsSubsetOrEq(Set *a, Set *b){
     return true;
 }
 //is a a subset of b, but not equal to b
-bool setIsSubset(Set *a, Set *b){
+bool setIsSubset(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     return a->length != b->length && setIsSubsetOrEq(a, b);
 }
 //are the two sets equal
-bool setEquals(Set *a, Set *b){
+bool setEquals(CommandProperties *cp){
+    Row *a = &cp->rows[cp->arg1];
+    Row *b = &cp->rows[cp->arg2];
     return a->length == b->length && setIsSubsetOrEq(a, b);
 }
 
@@ -708,8 +730,8 @@ int executeCommands(Row **rows, int rowsCount)
 }
 int main(int argc, char **argv)
 {
-    // char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
-    // printContentNoLength(randomInput);
+    char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
+    printContentNoLength(randomInput);
 
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
