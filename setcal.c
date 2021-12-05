@@ -349,7 +349,7 @@ int parseRelation(Row *row, char *line)
     }
     replaceSpaceWithZero(line);
     row->relation.content = pair;
-    row->relation.contentSize = pairCount-1;
+    row->relation.contentSize = pairCount - 1;
     return 1;
 }
 
@@ -358,7 +358,7 @@ int parseCommand(Row *row, char *line)
     char *arg1 = NULL;
     char *arg2 = NULL;
     char *arg3 = NULL;
-    for(int i = 1; line[i]!='\0'; i++)
+    for (int i = 1; line[i] != '\0'; i++)
     {
         if(line[i] == ' ' && isalpha(line[i+1]))
             row->command.name = &line[i+1];
@@ -374,6 +374,7 @@ int parseCommand(Row *row, char *line)
                 ERROR("Too many args", TOO_MANY_ARGUMENTS)
         }
     }
+
     replaceSpaceWithZero(line);
     if(arg1)
         row->command.arg1 = strToInt(arg1);
@@ -687,156 +688,171 @@ int setEquals(CommandProperties props, Row **rows){
 //returns true if relation is reflexive, otherwise returns false
 int relationIsReflexive(CommandProperties props, Row **rows)
 {
-    int arg = props.arg1-1;
-    if(props.arg2 > 0) ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
     int commandPos = props.arg3;
     int matchCount = 0;
-    if((*rows)[arg].type == REL)
+    if ((*rows)[arg].type == REL)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg].relation.contentSize; i++)
+        for (int i = 0; i < (*rows)[arg].relation.contentSize; i++)
         {
-            if(!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[i].second)) matchCount++;
+            if (!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[i].second))
+                matchCount++;
         }
-        if(matchCount == (*rows)[0].set.length) (*rows)[commandPos].outputValue = true;
-        else (*rows)[commandPos].outputValue = false;
+        if (matchCount == (*rows)[0].set.length)
+            (*rows)[commandPos].outputValue = true;
+        else
+            (*rows)[commandPos].outputValue = false;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is symmetric, otherwise returns false
+// returns true if relation is symmetric, otherwise returns false
 int relationIsSymmetric(CommandProperties props, Row **rows)
 {
-    int arg = props.arg1-1;
-    if(props.arg2 > 0) ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
     int commandPos = props.arg3;
     bool symmetry;
-    if((*rows)[arg].type == REL)
+    if ((*rows)[arg].type == REL)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg].relation.contentSize; i++)
+        for (int i = 0; i < (*rows)[arg].relation.contentSize; i++)
         {
             symmetry = false;
-            for(int j = 0; j < (*rows)[arg].relation.contentSize && !symmetry; j++)
+            for (int j = 0; j < (*rows)[arg].relation.contentSize && !symmetry; j++)
             {
-                if(!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[j].second) && !strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].first)) symmetry = true;
+                if (!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[j].second) && !strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].first))
+                    symmetry = true;
             }
-            if(!symmetry)
+            if (!symmetry)
             {
                 (*rows)[commandPos].outputValue = false;
                 break;
             }
         }
-        if(symmetry) (*rows)[commandPos].outputValue = true;
+        if (symmetry)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is antisymmetric, otherwise returns false
+// returns true if relation is antisymmetric, otherwise returns false
 int relationIsAntisymmetric(CommandProperties props, Row **rows)
 {
-    int arg = props.arg1-1;
-    if(props.arg2 > 0) ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
     int commandPos = props.arg3;
     bool antisymmetry;
-    if((*rows)[arg].type == REL)
+    if ((*rows)[arg].type == REL)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg].relation.contentSize; i++)
+        for (int i = 0; i < (*rows)[arg].relation.contentSize; i++)
         {
             antisymmetry = true;
-            for(int j = 0; j < (*rows)[arg].relation.contentSize && antisymmetry; j++)
+            for (int j = 0; j < (*rows)[arg].relation.contentSize && antisymmetry; j++)
             {
-                if(!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[j].second) && !strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].first) && strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[i].second)) antisymmetry = false;
+                if (!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[j].second) && !strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].first) && strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[i].second))
+                    antisymmetry = false;
             }
-            if(!antisymmetry) 
+            if (!antisymmetry)
             {
                 (*rows)[commandPos].outputValue = false;
                 break;
             }
         }
-        if(antisymmetry) (*rows)[commandPos].outputValue = true;
+        if (antisymmetry)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is transitive, otherwise returns false
+// returns true if relation is transitive, otherwise returns false
 int relationIsTransitive(CommandProperties props, Row **rows)
 {
-    int arg = props.arg1-1;
-    if(props.arg2 > 0) ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
     int commandPos = props.arg3;
     bool transitivity;
-    if((*rows)[arg].type == REL)
+    if ((*rows)[arg].type == REL)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg].relation.contentSize; i++)
+        for (int i = 0; i < (*rows)[arg].relation.contentSize; i++)
         {
             transitivity = true;
-            for(int j = 0; j < (*rows)[arg].relation.contentSize; j++)
+            for (int j = 0; j < (*rows)[arg].relation.contentSize; j++)
             {
-                if(strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].first) == 0)
+                if (strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].first) == 0)
                 {
                     transitivity = false;
-                    for(int k = 0; k < (*rows)[arg].relation.contentSize && !transitivity; k++)
+                    for (int k = 0; k < (*rows)[arg].relation.contentSize && !transitivity; k++)
                     {
-                        if(!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[k].first) && !strcmp((*rows)[arg].relation.content[j].second, (*rows)[arg].relation.content[k].second)) transitivity = true;
+                        if (!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[k].first) && !strcmp((*rows)[arg].relation.content[j].second, (*rows)[arg].relation.content[k].second))
+                            transitivity = true;
                     }
                 }
             }
-            if(!transitivity)
+            if (!transitivity)
             {
                 (*rows)[commandPos].outputValue = false;
                 break;
             }
         }
-        if(transitivity) (*rows)[commandPos].outputValue = true;
+        if (transitivity)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is a function, otherwise returns false
+// returns true if relation is a function, otherwise returns false
 int relationIsFunction(CommandProperties props, Row **rows)
 {
-    int arg = props.arg1-1;
-    if(props.arg2 > 0) ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
     int commandPos = props.arg3;
     bool notFunction = false;
-    if((*rows)[arg].type == REL)
+    if ((*rows)[arg].type == REL)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg].relation.contentSize && !notFunction; i++)
+        for (int i = 0; i < (*rows)[arg].relation.contentSize && !notFunction; i++)
         {
-            for(int j = 0; j < (*rows)[arg].relation.contentSize && !notFunction; j++)
+            for (int j = 0; j < (*rows)[arg].relation.contentSize && !notFunction; j++)
             {
-                if(!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[j].first) && strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].second))
+                if (!strcmp((*rows)[arg].relation.content[i].first, (*rows)[arg].relation.content[j].first) && strcmp((*rows)[arg].relation.content[i].second, (*rows)[arg].relation.content[j].second))
                 {
                     (*rows)[commandPos].outputValue = false;
                     notFunction = true;
                 }
             }
         }
-        if(!notFunction) (*rows)[commandPos].outputValue = true;
+        if (!notFunction)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns the domain of the relation
+// returns the domain of the relation
 Set findRelationDomain(Relation relation)
 {
     Set domain;
     domain.length = 0;
-    domain.content = (char **) malloc(relation.contentSize * sizeof(char *));
-    for(int i = 0; i < relation.contentSize; i++)
+    domain.content = (char **)malloc(relation.contentSize * sizeof(char *));
+    for (int i = 0; i < relation.contentSize; i++)
     {
-        if(!setContainsString(domain, relation.content[i].first))
+        if (!setContainsString(domain, relation.content[i].first))
         {
-            domain.content[domain.length] = (char *) malloc(CHUNK * sizeof(char));
+            domain.content[domain.length] = (char *)malloc(CHUNK * sizeof(char));
             strcpy(domain.content[domain.length], relation.content[i].first);
             domain.length++;
         }
@@ -844,19 +860,36 @@ Set findRelationDomain(Relation relation)
     return domain;
 }
 
+// command function that is used to print domain of the relation
+int printRelationDomain(CommandProperties props, Row **rows)
+{
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int commandPos = props.arg3;
+    if ((*rows)[arg].type == REL)
+    {
+        Set domain = findRelationDomain((*rows)[arg].relation);
 
+        (*rows)[commandPos].type = SET;
+        (*rows)[commandPos].set.content = domain.content;
+        (*rows)[commandPos].set.length = domain.length;
+        return 1;
+    }
+    ERROR("There is no relation on this line", INVALID_ARGUMENT);
+}
 
 // returns the codomain of the relation
 Set findRelationCodomain(Relation relation)
 {
     Set codomain;
     codomain.length = 0;
-    codomain.content = (char **) malloc(relation.contentSize * sizeof(char *));
-    for(int i = 0; i < relation.contentSize; i++)
+    codomain.content = (char **)malloc(relation.contentSize * sizeof(char *));
+    for (int i = 0; i < relation.contentSize; i++)
     {
-        if(!setContainsString(codomain, relation.content[i].second))
+        if (!setContainsString(codomain, relation.content[i].second))
         {
-            codomain.content[codomain.length] = (char *) malloc(CHUNK * sizeof(char));
+            codomain.content[codomain.length] = (char *)malloc(CHUNK * sizeof(char));
             strcpy(codomain.content[codomain.length], relation.content[i].second);
             codomain.length++;
         }
@@ -867,10 +900,11 @@ Set findRelationCodomain(Relation relation)
 // command function that is used to print codomain of the relation
 int printRelationCodomain(CommandProperties props, Row **rows)
 {
-    int arg = props.arg1-1;
-    if(props.arg2 > 0) ERROR("There is no relation on this line", INVALID_ARGUMENT);
+    int arg = props.arg1 - 1;
+    if (props.arg2 > 0)
+        ERROR("There is no relation on this line", INVALID_ARGUMENT);
     int commandPos = props.arg3;
-    if((*rows)[arg].type == REL)
+    if ((*rows)[arg].type == REL)
     {
         Set codomain = findRelationCodomain((*rows)[arg].relation);
 
@@ -882,109 +916,112 @@ int printRelationCodomain(CommandProperties props, Row **rows)
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is injective, otherwise returns false
-int relationIsInjective(CommandProperties props, Row **rows)   // (Relation *relation, Set *setA, Set *setB)
+// returns true if relation is injective, otherwise returns false
+int relationIsInjective(CommandProperties props, Row **rows) // (Relation *relation, Set *setA, Set *setB)
 {
-    int arg1 = props.arg1-1;
-    int arg2 = props.arg2-1;
-    int arg3 = props.arg3-1;
+    int arg1 = props.arg1 - 1;
+    int arg2 = props.arg2 - 1;
+    int arg3 = props.arg3 - 1;
     int commandPos = props.arg4;
     bool injectivity = true;
-    if((*rows)[arg1].type == REL && (*rows)[arg2].type == SET && (*rows)[arg3].type == SET)
+    if ((*rows)[arg1].type == REL && (*rows)[arg2].type == SET && (*rows)[arg3].type == SET)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg1].relation.contentSize && injectivity; i++)
+        for (int i = 0; i < (*rows)[arg1].relation.contentSize && injectivity; i++)
         {
             // printf("Iterace: %d\n",i);
-            if(!setContainsString((*rows)[arg2].set, (*rows)[arg1].relation.content[i].first) || !setContainsString((*rows)[arg3].set, (*rows)[arg1].relation.content[i].second))
+            if (!setContainsString((*rows)[arg2].set, (*rows)[arg1].relation.content[i].first) || !setContainsString((*rows)[arg3].set, (*rows)[arg1].relation.content[i].second))
             {
                 (*rows)[commandPos].outputValue = false;
                 injectivity = false;
                 break;
             }
-            for(int j = i + 1; j < (*rows)[arg1].relation.contentSize; j++)
+            for (int j = i + 1; j < (*rows)[arg1].relation.contentSize; j++)
             {
-                if(!strcmp((*rows)[arg1].relation.content[i].first, (*rows)[arg1].relation.content[j].first) || !strcmp((*rows)[arg1].relation.content[i].second, (*rows)[arg1].relation.content[j].second))
+                if (!strcmp((*rows)[arg1].relation.content[i].first, (*rows)[arg1].relation.content[j].first) || !strcmp((*rows)[arg1].relation.content[i].second, (*rows)[arg1].relation.content[j].second))
                 {
-                (*rows)[commandPos].outputValue = false;
-                injectivity = false;
-                break;
+                    (*rows)[commandPos].outputValue = false;
+                    injectivity = false;
+                    break;
                 }
             }
         }
-        if(injectivity) (*rows)[commandPos].outputValue = true;
+        if (injectivity)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation or set on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is surjective, otherwise returns false
+// returns true if relation is surjective, otherwise returns false
 int relationIsSurjective(CommandProperties props, Row **rows)
 {
-    int arg1 = props.arg1-1;
-    int arg2 = props.arg2-1;
-    int arg3 = props.arg3-1;
+    int arg1 = props.arg1 - 1;
+    int arg2 = props.arg2 - 1;
+    int arg3 = props.arg3 - 1;
     int commandPos = props.arg4;
     bool surjectivity = true;
-    if((*rows)[arg1].type == REL && (*rows)[arg2].type == SET && (*rows)[arg3].type == SET)
+    if ((*rows)[arg1].type == REL && (*rows)[arg2].type == SET && (*rows)[arg3].type == SET)
     {
         (*rows)[commandPos].type = OUT;
-        if(!setsEqual(findRelationCodomain((*rows)[arg1].relation), (*rows)[arg3].set))
+        if (!setsEqual(findRelationCodomain((*rows)[arg1].relation), (*rows)[arg3].set))
         {
             (*rows)[commandPos].outputValue = false;
             surjectivity = false;
         }
-        for(int i = 0; i < (*rows)[arg1].relation.contentSize && surjectivity; i++)
+        for (int i = 0; i < (*rows)[arg1].relation.contentSize && surjectivity; i++)
         {
-            if(!setContainsString((*rows)[arg2].set, (*rows)[arg1].relation.content[i].first) || !setContainsString((*rows)[arg3].set, (*rows)[arg1].relation.content[i].second))
+            if (!setContainsString((*rows)[arg2].set, (*rows)[arg1].relation.content[i].first) || !setContainsString((*rows)[arg3].set, (*rows)[arg1].relation.content[i].second))
             {
-            (*rows)[commandPos].outputValue = false;
-            surjectivity = false;
+                (*rows)[commandPos].outputValue = false;
+                surjectivity = false;
             }
         }
-        if(surjectivity) (*rows)[commandPos].outputValue = true;
+        if (surjectivity)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
 
-//returns true if relation is injective (both injective and surjective), otherwise returns false
+// returns true if relation is injective (both injective and surjective), otherwise returns false
 int relationIsBijective(CommandProperties props, Row **rows)
 {
-    int arg1 = props.arg1-1;
-    int arg2 = props.arg2-1;
-    int arg3 = props.arg3-1;
+    int arg1 = props.arg1 - 1;
+    int arg2 = props.arg2 - 1;
+    int arg3 = props.arg3 - 1;
     int commandPos = props.arg4;
     bool bijectivity = true;
-    if((*rows)[arg1].type == REL && (*rows)[arg2].type == SET && (*rows)[arg3].type == SET)
+    if ((*rows)[arg1].type == REL && (*rows)[arg2].type == SET && (*rows)[arg3].type == SET)
     {
         (*rows)[commandPos].type = OUT;
-        for(int i = 0; i < (*rows)[arg1].relation.contentSize && bijectivity; i++)
+        for (int i = 0; i < (*rows)[arg1].relation.contentSize && bijectivity; i++)
         {
-            if(!setContainsString((*rows)[arg2].set, (*rows)[arg1].relation.content[i].first) || !setContainsString((*rows)[arg3].set, (*rows)[arg1].relation.content[i].second))
+            if (!setContainsString((*rows)[arg2].set, (*rows)[arg1].relation.content[i].first) || !setContainsString((*rows)[arg3].set, (*rows)[arg1].relation.content[i].second))
             {
                 (*rows)[commandPos].outputValue = false;
                 bijectivity = false;
                 break;
             }
-            if(!setsEqual(findRelationCodomain((*rows)[arg1].relation), (*rows)[arg3].set))
+            if (!setsEqual(findRelationCodomain((*rows)[arg1].relation), (*rows)[arg3].set))
             {
                 (*rows)[commandPos].outputValue = false;
                 bijectivity = false;
                 break;
             }
-            for(int j = i + 1; j < (*rows)[arg1].relation.contentSize; j++)
+            for (int j = i + 1; j < (*rows)[arg1].relation.contentSize; j++)
             {
-                if(!strcmp((*rows)[arg1].relation.content[i].first, (*rows)[arg1].relation.content[j].first) || !strcmp((*rows)[arg1].relation.content[i].second, (*rows)[arg1].relation.content[j].second))
+                if (!strcmp((*rows)[arg1].relation.content[i].first, (*rows)[arg1].relation.content[j].first) || !strcmp((*rows)[arg1].relation.content[i].second, (*rows)[arg1].relation.content[j].second))
                 {
-                (*rows)[commandPos].outputValue = false;
-                bijectivity = false;
-                break;
+                    (*rows)[commandPos].outputValue = false;
+                    bijectivity = false;
+                    break;
                 }
             }
 
         }
-        if(bijectivity) (*rows)[commandPos].outputValue = true;
+        if (bijectivity)
+            (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
