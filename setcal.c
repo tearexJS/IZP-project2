@@ -276,8 +276,8 @@ int parseRelation(Row *row, char *line)
     int pairCount = 1;
     Pair *pair = (Pair *)malloc(pairCount * sizeof(Pair));
     int iter = 2; // to begin at the first element of the relation
-    
-    enum StateRelation state = waitForLParentheses; 
+
+    enum StateRelation state = waitForLParentheses;
     while(line[iter] != '\n')
     {
         if(state == waitForLParentheses)
@@ -303,7 +303,7 @@ int parseRelation(Row *row, char *line)
             }
             else
                 ERROR("Invalid relation format", INVALID_ARGUMENT);
-                
+
         }
         else if (state == waitForSecondElement)
         {
@@ -515,7 +515,7 @@ int setComplement(CommandProperties props, Row **rows){
         char **ret = (char **)malloc(uni.length * sizeof(char *));
         int index = 0;//pocet vystupnich prvku
         for(int i = 0; i < uni.length; i++){ //prochazim prvky universa
-            if(!setContainsString(set, uni.content[i])) //hledm prvek z univerza v mnozine
+            if(!setContainsString(set, uni.content[i])) //hledam prvek z univerza v mnozine
             {//kdyz neni prvek v nozine, dam do komplementu
                 ret[index++] = uni.content[i];
 
@@ -549,6 +549,7 @@ int contentContainsElement(char ** content, int contentSize, char *element)
     }
     return false;
 }
+
 // return a+b mixed, dont forget to free() after printing
 int setUnion(CommandProperties props, Row **rows)
 {
@@ -694,7 +695,6 @@ int executeCommands(Row **rows, int rowsCount)
                 {
                     if(!strcmp(commandList[j].name, (*rows)[i].command.name))
                     {
-                        //printf("Spoustim \n");
                         int arg1 = (*rows)[i].command.arg1-1;
                         //int arg2 = rows[i].command.arg2;
                         if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET)
@@ -715,7 +715,6 @@ int executeCommands(Row **rows, int rowsCount)
 
 int main(int argc, char **argv)
 {
-
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
     int rowsCount = 0;
