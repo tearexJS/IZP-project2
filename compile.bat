@@ -1,1 +1,0 @@
-gcc -std=c99 -Wall -Wextra -Werror D:\IZP\projekt2\IZP-project2\setcal.c -o setcal 
