@@ -952,7 +952,17 @@ int relationIsInjective(CommandProperties props, Row **rows) // (Relation *relat
     }
     ERROR("There is no relation or set on this line", INVALID_ARGUMENT);
 }
-
+bool setsEqual(Set a, Set b)
+{
+    for(int i = 0; i < a.length; i++){
+        if(!setContainsString(b, a.content[i]))
+        {
+            return false;
+        }
+    }
+    if(a.length == b.length) return true;
+    else return false;
+}
 // returns true if relation is surjective, otherwise returns false
 int relationIsSurjective(CommandProperties props, Row **rows)
 {
