@@ -1,0 +1,8 @@
+U a b c x y z w
+S a b c
+S x y z
+S x y
+S x y z w
+S
+R
+C bijective 7 2 3
