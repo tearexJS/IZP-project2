@@ -2,6 +2,7 @@
 *.d
 .gdb_history
 setcal
+*.orig
 # Object files
 *.o
 *.ko
