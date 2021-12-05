@@ -1,5 +1,6 @@
-a b c x y z 
-a b c x 
-x y z 
-x 
-a b c 
+U a b c x y z 
+S 
+S x y z 
+S x 
+S a b c 
+S a b c x y z 

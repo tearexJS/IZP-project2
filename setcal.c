@@ -7,7 +7,8 @@
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
 #define CHUNK 30
-#define NUMBER_OF_COMMANDS 9
+#define NUMBER_OF_COMMANDS 5
+
 #define NOT_ENOUGH_ARGUMENTS 2
 #define CANNOT_OPEN_FILE 3
 #define EMPTY_FILE 4
@@ -204,10 +205,6 @@ int freeAll(Row *rows, int rowsCount)
         {
             free(rows[i].relation.content);
         }
-        // else if (rows[i].type == COMMAND)
-        // {
-        //     free(rows[i].command.)
-        // }
     }
     free(rows);
     return 1;
@@ -352,7 +349,7 @@ int parseCommand(Row *row, char *line)
             if(!arg1)
                 arg1 = &line[i+1];
             else if (!arg2)
-                arg2 = &line[i+2];
+                arg2 = &line[i+1];
             else
                 ERROR("Too many args", TOO_MANY_ARGUMENTS)
         }
@@ -478,7 +475,7 @@ int setIsEmpty(CommandProperties props, Row **rows)
 // }
 int setContainsString(Set *set, char *str){
     for(int i = 0; i < set->length; i++){
-        if(strcmp(set->content[i],str))
+        if(!strcmp(set->content[i],str))
             return true;
     }
     return false;
@@ -502,61 +499,44 @@ int setContainsString(Set *set, char *str){
 int copyContent(char **contentA, char ** contentB, int lenA, int lenB)
 {
     int newLen = lenA;
-   for(int i = 0; i < lenA; i++)
+   for(int i = 0; i < lenB; i++)
    {
-       for(int j = 0; j < lenB; j++)
-       {
-           if(strcmp(contentA[i], contentB[j]))
-           {
-               newLen++;
-               contentA[lenA+j] = contentB[j];
-           }
-       }
+       contentA[newLen+i] = contentB[i];
+       newLen++;
    } 
    return newLen;
+}
+
+int contentContainsElement(char ** content, int contentSize, char *element)
+{
+    for(int i = 0; i < contentSize; i++)
+    {
+        if(!strcmp(content[i], element))
+            return true;
+    }
+    return false;
 }
 // return a+b mixed, dont forget to free() after printing
 int setUnion(CommandProperties props, Row **rows)
 {
-    int arg1 = props.arg1-1;
-    int arg2 = props.arg2-1;
-    int *rowsCount = props.arg4;
-    int *allocatedRowsCount = props.arg5;
+    int commandPos = props.arg3;
     int newLen = 0;
-    Set a = (*rows)[arg1].set;
-    Set b = (*rows)[arg2].set;
+    Set a = (*rows)[props.arg1-1].set;
+    Set b = (*rows)[props.arg2-1].set;
     char **newSetContent = (char **)malloc((a.length)+(b.length)*sizeof(char*));
-    if((*rowsCount+1) >= *allocatedRowsCount)
+    newLen = copyContent(newSetContent, a.content, newLen, a.length);
+    for(int i = 0; i < b.length; i++)
     {
-        *allocatedRowsCount +=1;
-        *rows = realloc(*rows, *allocatedRowsCount* sizeof(Row));
+        if(!contentContainsElement(newSetContent, newLen, b.content[i]))
+        {
+            newSetContent[newLen+i] = b.content[i];
+            newLen++;
+        }
     }
+    (*rows)[commandPos].type = SET;
+    (*rows)[commandPos].set.content = newSetContent;
+    (*rows)[commandPos].set.length = newLen;
 
-    if(a.length > 0 && b.length > 0)
-    {
-        memcpy(newSetContent, a.content, sizeof(a.content));
-        newLen = copyContent(newSetContent, b.content, a.length, b.length);
-    }
-    else if(a.length == 0 && b.length == 0)
-    {
-        newSetContent = NULL;
-    }
-    else if(a.length > 0 && b.length == 0)
-    {
-        memcpy(newSetContent, a.content, sizeof(a.content));
-        newLen = a.length;
-    }
-    else if(a.length == 0 && b.length > 0)
-    {
-        memcpy(newSetContent, b.content, sizeof(b.content));
-        newLen = b.length;
-    }
-    else
-        ERROR("Invalid argument", INVALID_ARGUMENT);
-    *rowsCount++;
-    (*rows)[*rowsCount-1].set.content = newSetContent;
-    (*rows)[*rowsCount-1].set.length = newLen;
-    (*rows)[*rowsCount-1].set.type = SET;
     return 1;
 
 }
@@ -577,109 +557,144 @@ int setUnion(CommandProperties props, Row **rows)
 //     return ret;
 // }
 //return a\b
-int setMinus(CommandProperties props, Row **rows)
-{
-    int arg1 = props.arg1;
-    int arg2 = props.arg2;
-    int *rowsCount = props.arg4;
-    int *allocatedRowsCount = props.arg5;
-    Row a = (*rows)[arg1].set;
-    Row b = (*rows)[arg2].set;
-    if((*rowsCount+1)>=*allocatedRowsCount)
-    {
-        *allocatedRowsCount++;
-        *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row))
-    }
-    char **ret = (char**)malloc(a->length*sizeof(char*));
-    int index = 0;
-    for(int i = 0; i < a->length; i++){
-        if(setContainsString(b, a->content[i]) == 0)
-        {
-            ret[index] = a->content[i];
-            index++;
-        }
-    }
-    ret = (char**)realloc(ret, index*(sizeof(char*)));
-    return ret;
-}
+
+// int setMinus(CommandProperties props, Row **rows)
+// {
+//     int arg1 = props.arg1;
+//     int arg2 = props.arg2;
+//     int *rowsCount = props.arg4;
+//     int *allocatedRowsCount = props.arg5;
+//     int elementCounter = 0;
+//     Set a = (*rows)[arg1].set;
+//     Set b = (*rows)[arg2].set;
+//     char **newSetContent = (char **)malloc(a.length*sizeof(char*));
+//     if((*rowsCount+1)>=*allocatedRowsCount) // FIXME: not needed, can use the command
+//     {
+//         *allocatedRowsCount++;
+//         *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
+//     }
+//     for(int i = 0; i < a.length; i++)
+//     {
+//         bool isPresent = false;
+//         for(int j = 0; j < b.length; j++)
+//         {
+//             if(strcmp(a.content[i], b.content[j]) && !isPresent)
+//             {
+//                 isPresent = true;
+//                 strcpy(newSetContent[elementCounter], a.content[i]);
+//                 elementCounter++;
+//             }
+//         }
+//     }
+//     *rowsCount++;
+//     (*rows)[*rowsCount-1].type = SET;
+//     if(!elementCounter)
+//     {
+//         (*rows)[*rowsCount-1].set.content = NULL;
+//         (*rows)[*rowsCount-1].set.length = 0;
+//     }
+//     (*rows)[*rowsCount-1].set.content = newSetContent;
+//     (*rows)[*rowsCount-1].set.length = elementCounter;
+
+//     return 1;
+
+// }
 //is a subset or equal b
-bool setIsSubsetOrEq(CommandProperties *cp){
-    Row *a = &cp->rows[cp->arg1];
-    Row *b = &cp->rows[cp->arg2];
-    for(int i = 0; i < a->length; i++){
-        if(setContainsString(b, a->content[i]) == 0)
-        {
-            return false;
+int setIsSubsetOrEq(CommandProperties props, Row **rows){
+    int arg1 = props.arg1-1;
+    int arg2 = props.arg2-1;
+    int commandPos = props.arg3;
+    Set a = (*rows)[arg1].set;
+    Set b = (*rows)[arg2].set;
+
+    for(int i = 0; i < a.length; i++){
+        if(!setContainsString(&b, a.content[i]))
+        {  
+            (*rows)[commandPos].outputValue = false;
+            (*rows)[commandPos].type = OUT;
+            return 1;
         }
     }
-    return true;
+    (*rows)[commandPos].outputValue = true;
+    (*rows)[commandPos].type = OUT;
+    return 1;
 }
 //is a a subset of b, but not equal to b
-bool setIsSubset(CommandProperties *cp){
-    Row *a = &cp->rows[cp->arg1];
-    Row *b = &cp->rows[cp->arg2];
-    return a->length != b->length && setIsSubsetOrEq(a, b);
+int setIsSubset(CommandProperties props, Row **rows){
+    
+    Set a = (*rows)[props.arg1-1].set;
+    Set b = (*rows)[props.arg2-1].set;
+    if(b.length > a.length)
+        setIsSubsetOrEq(props, rows);
+    else
+    {
+        (*rows)[props.arg3].type = OUT;
+        (*rows)[props.arg3].outputValue = false;    
+    }
+    return 1;
 }
 //are the two sets equal
-bool setEquals(CommandProperties *cp){
-    Row *a = &cp->rows[cp->arg1];
-    Row *b = &cp->rows[cp->arg2];
-    return a->length == b->length && setIsSubsetOrEq(a, b);
+int setEquals(CommandProperties props, Row **rows){
+    Set a = (*rows)[props.arg1-1].set;
+    Set b = (*rows)[props.arg2-1].set;
+    if(a.length == b.length)
+        setIsSubsetOrEq(props, rows);
+    else
+    {
+        (*rows)[props.arg3].type = OUT;
+        (*rows)[props.arg3].outputValue = false;    
+    }
+    return 1;
+    
 }
 
-const Command commandList[1] = 
+const Command commandList[NUMBER_OF_COMMANDS] = 
 {
     {"empty", setIsEmpty, 2},
     // {"complement", setComplement, 1},
     // {"card", setCard, 1},
     {"union", setUnion, 4},
     // {"intersect", setIntersect, 2},
-    {"minus", setMinus, 4},
-    // {"subseteq", setIsSubsetOrEq, 2},
-    // {"subset", setIsSubset, 2},
-    // {"equals", setEquals, 2}
+    //{"minus", setMinus, 4},
+    {"subseteq", setIsSubsetOrEq, 3},
+    {"subset", setIsSubset, 2},
+    {"equals", setEquals, 2}
 };
 // executes the commands utilizing function pointers 
 // loops through the const array where the func pointers are stored and executes the command which needs to be executed
 // returns the received value from the called function when something went wrong
 // returns 1 if everything went ok
-int executeCommands(Row **rows, int *rowsCount, int *allocatedRowsCount)
+int executeCommands(Row **rows, int rowsCount)
 {
     for(int i = 0; i < rowsCount; i++)
     {
-        if((*rows)[i].type == COMMAND)
-        {
-            for(int j = 0; j < 1; j++)
+            for(int j = 0; j < NUMBER_OF_COMMANDS; j++)
             {
-                if(!strcmp(commandList[j].name, (*rows)[i].command.name))
-                {
-                    int arg1 = (*rows)[i].command.arg1-1;
-                    //int arg2 = rows[i].command.arg2;
-                    if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET)
-                    {
-                        if(commandList[j].argc == 2)
-                            (*rows)[i].command.arg3 = i;
-                        else if (commandList[j].argc == 4)
-                        {
-                            (*rows)[i].command.arg4 = rowsCount;
-                            (*rows)[i].command.arg5 = allocatedRowsCount;
-                        }
-                                               
-                        int recVal = commandList[j].func((*rows)[i].command, rows);
-                        if(recVal != 1)
-                            return recVal;
 
-                    }   
+                if((*rows)[i].type == COMMAND)
+                {
+                    if(!strcmp(commandList[j].name, (*rows)[i].command.name))
+                    {
+                        //printf("Spoustim \n");
+                        int arg1 = (*rows)[i].command.arg1-1;
+                        //int arg2 = rows[i].command.arg2;
+                        if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET)
+                        {
+
+                            (*rows)[i].command.arg3 = i;
+                            int recVal = commandList[j].func((*rows)[i].command, rows);
+                            if(recVal != 1)
+                                return recVal;
+
+                        }
+                    }
                 }
             }
-        }
     }
     return 1;
 }
 int main(int argc, char **argv)
 {
-    char *randomInput[] = {"ahoj", "prd", "test", "nevimnecovelmidlouheho"};
-    printContentNoLength(randomInput);
 
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
@@ -695,7 +710,7 @@ int main(int argc, char **argv)
 
     if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) != 1)
         return EMPTY_FILE;
-    if(executeCommands(&rows, &rowsCount, &allocatedRowsCount) == 1)
+    if(executeCommands(&rows, rowsCount) == 1)
     {
         print(rows, rowsCount);
     }
