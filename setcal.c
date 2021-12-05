@@ -674,12 +674,12 @@ const Command commandList[NUMBER_OF_COMMANDS] =
     {"empty", setIsEmpty, 1},
     {"complement", setComplement, 1},
     {"card", setCard, 1}, //dopsat vypis do konzole
-    // {"union", setUnion, 2},
+    {"union", setUnion, 2},
     {"intersect", setIntersect, 2},
     {"minus", setMinus, 2},
-    // {"subseteq", setIsSubsetOrEq, 2},
-    // {"subset", setIsSubset, 2},
-    // {"equals", setEquals, 2}
+    {"subseteq", setIsSubsetOrEq, 2},
+    {"subset", setIsSubset, 2},
+    {"equals", setEquals, 2}
 };
 // executes the commands utilizing function pointers
 // loops through the const array where the func pointers are stored and executes the command which needs to be executed
