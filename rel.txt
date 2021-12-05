@@ -1,5 +1,16 @@
-U dad mom girl boy man woman
-R (dad boy) (dad girl) (mom boy) (mom girl)
-R (dad man) (boy man) (mom woman) (girl woman)
-S a b c
-C intersect 2 3
+U 1 2 3 4 5 6
+R (1 4) (2 5)
+S 1 2
+S 4 5
+S 1 2 3
+S 4 5 6
+C reflexive 2
+C symmetric 2
+C antisymmetric 2
+C transitive 2
+C function 2
+C domain 2
+C codomain 2
+C injective 2 3 4
+C surjective 2 5 6
+C bijective 2 3 4
