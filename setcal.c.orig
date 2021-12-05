@@ -7,7 +7,8 @@
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
 #define CHUNK 30
-#define NUMBER_OF_COMMANDS 9
+#define NUMBER_OF_COMMANDS 5
+
 #define NOT_ENOUGH_ARGUMENTS 2
 #define CANNOT_OPEN_FILE 3
 #define EMPTY_FILE 4
@@ -359,9 +360,15 @@ int parseCommand(Row *row, char *line)
         {
             if(!arg1){
                 arg1 = &line[i+1];
+<<<<<<< HEAD
+            else if (!arg2)
+                arg2 = &line[i+1];
+            else
+=======
             }else if (!arg2){
                 arg2 = &line[i+1]; //ne plus dva
             }else
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
                 ERROR("Too many args", TOO_MANY_ARGUMENTS)
         }
     }
@@ -496,10 +503,17 @@ int setCard(CommandProperties props, Row **rows)
     ERROR("There is no set on this line", INVALID_ARGUMENT);
 }
 
+<<<<<<< HEAD
+// }
+int setContainsString(Set *set, char *str){
+    for(int i = 0; i < set->length; i++){
+        if(!strcmp(set->content[i],str))
+=======
 //pomocna funkce
 int setContainsString(Set set, char *str){
     for(int i = 0; i < set.length; i++){
         if(!strcmp(set.content[i],str)){
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
             return true;
         }
     }
@@ -549,7 +563,10 @@ int contentContainsElement(char ** content, int contentSize, char *element)
     }
     return false;
 }
+<<<<<<< HEAD
+=======
 
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
 // return a+b mixed, dont forget to free() after printing
 int setUnion(CommandProperties props, Row **rows)
 {
@@ -570,6 +587,9 @@ int setUnion(CommandProperties props, Row **rows)
     (*rows)[commandPos].type = SET;
     (*rows)[commandPos].set.content = newSetContent;
     (*rows)[commandPos].set.length = newLen;
+<<<<<<< HEAD
+
+=======
     return 1;
 }
 
@@ -596,10 +616,54 @@ int setIntersect(CommandProperties props, Row **rows){
     (*rows)[commandPos].type = SET;
     (*rows)[commandPos].set.content = ret;
     (*rows)[commandPos].set.length = index;
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
     return 1;
-
 }
 //return a\b
+<<<<<<< HEAD
+
+// int setMinus(CommandProperties props, Row **rows)
+// {
+//     int arg1 = props.arg1;
+//     int arg2 = props.arg2;
+//     int *rowsCount = props.arg4;
+//     int *allocatedRowsCount = props.arg5;
+//     int elementCounter = 0;
+//     Set a = (*rows)[arg1].set;
+//     Set b = (*rows)[arg2].set;
+//     char **newSetContent = (char **)malloc(a.length*sizeof(char*));
+//     if((*rowsCount+1)>=*allocatedRowsCount) // FIXME: not needed, can use the command
+//     {
+//         *allocatedRowsCount++;
+//         *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
+//     }
+//     for(int i = 0; i < a.length; i++)
+//     {
+//         bool isPresent = false;
+//         for(int j = 0; j < b.length; j++)
+//         {
+//             if(strcmp(a.content[i], b.content[j]) && !isPresent)
+//             {
+//                 isPresent = true;
+//                 strcpy(newSetContent[elementCounter], a.content[i]);
+//                 elementCounter++;
+//             }
+//         }
+//     }
+//     *rowsCount++;
+//     (*rows)[*rowsCount-1].type = SET;
+//     if(!elementCounter)
+//     {
+//         (*rows)[*rowsCount-1].set.content = NULL;
+//         (*rows)[*rowsCount-1].set.length = 0;
+//     }
+//     (*rows)[*rowsCount-1].set.content = newSetContent;
+//     (*rows)[*rowsCount-1].set.length = elementCounter;
+
+//     return 1;
+
+// }
+=======
 int setMinus(CommandProperties props, Row **rows){
     int arg;
     arg = props.arg1-1; //prvni parametr mnozinove operace
@@ -622,6 +686,7 @@ int setMinus(CommandProperties props, Row **rows){
     (*rows)[commandPos].set.length = index;
     return 1;
 }
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
 //is a subset or equal b
 int setIsSubsetOrEq(CommandProperties props, Row **rows){
     int arg1 = props.arg1-1;
@@ -629,9 +694,14 @@ int setIsSubsetOrEq(CommandProperties props, Row **rows){
     int commandPos = props.arg3;
     Set a = (*rows)[arg1].set;
     Set b = (*rows)[arg2].set;
+<<<<<<< HEAD
 
     for(int i = 0; i < a.length; i++){
+        if(!setContainsString(&b, a.content[i]))
+=======
+    for(int i = 0; i < a.length; i++){
         if(!setContainsString(b, a.content[i]))
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
         {  
             (*rows)[commandPos].outputValue = false;
             (*rows)[commandPos].type = OUT;
@@ -673,6 +743,15 @@ int setEquals(CommandProperties props, Row **rows){
 
 const Command commandList[NUMBER_OF_COMMANDS] = 
 {
+<<<<<<< HEAD
+    {"empty", setIsEmpty, 2},
+    // {"complement", setComplement, 1},
+    // {"card", setCard, 1},
+    {"union", setUnion, 4},
+    // {"intersect", setIntersect, 2},
+    //{"minus", setMinus, 4},
+    {"subseteq", setIsSubsetOrEq, 3},
+=======
     {"empty", setIsEmpty, 1},
     {"complement", setComplement, 1},
     {"card", setCard, 1}, //dopsat vypis do konzole
@@ -680,6 +759,7 @@ const Command commandList[NUMBER_OF_COMMANDS] =
     {"intersect", setIntersect, 2},
     {"minus", setMinus, 2},
     {"subseteq", setIsSubsetOrEq, 2},
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
     {"subset", setIsSubset, 2},
     {"equals", setEquals, 2}
 };
@@ -693,11 +773,18 @@ int executeCommands(Row **rows, int rowsCount)
     {
             for(int j = 0; j < NUMBER_OF_COMMANDS; j++)
             {
+<<<<<<< HEAD
+
+=======
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
                 if((*rows)[i].type == COMMAND)
                 {
                     if(!strcmp(commandList[j].name, (*rows)[i].command.name))
                     {
+<<<<<<< HEAD
                         //printf("Spoustim \n");
+=======
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
                         int arg1 = (*rows)[i].command.arg1-1;
                         //int arg2 = rows[i].command.arg2;
                         if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET)
@@ -718,7 +805,10 @@ int executeCommands(Row **rows, int rowsCount)
 
 int main(int argc, char **argv)
 {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2813017b24c4d2a463d8be41f29a7769bf9ec9df
     Row *rows = (Row *)malloc(ROWS_TO_ALLOCATE * sizeof(Row));
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
     int rowsCount = 0;
