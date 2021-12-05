@@ -6,8 +6,9 @@
 
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
-#define CHUNK 30
+#define MAX_ELEMENT_LENGTH 30
 #define NUMBER_OF_COMMANDS 9
+
 #define NOT_ENOUGH_ARGUMENTS 2
 #define CANNOT_OPEN_FILE 3
 #define EMPTY_FILE 4
@@ -119,7 +120,10 @@ void printSetContent(char **content, int length)
     {
         for(int i = 0; i < length; i++)
         {
-            printf("%s ", content[i]);
+            if(i != length-1)
+                printf("%s ", content[i]);
+            else
+                printf("%s", content[i]);
         }
     }
     printf("\n");
@@ -130,7 +134,8 @@ void printRelContent(Pair *pair, int pairCount)
     {
         printf("(%s ", pair[i].first);
         printf("%s)", pair[i].second);
-        printf(" ");
+        if(i != (pairCount-1))
+            printf(" ");
     }
     printf("\n");
 }
@@ -140,17 +145,17 @@ void print(Row *rows, int rowsCount)
     {
         if (rows[i].type == UNI)
         {
-            printf("U ");
+            rows[i].set.length != 0 ? printf("U ") : printf("U");
             printSetContent(rows[i].set.content, rows[i].set.length);
         }
         else if (rows[i].type == SET)
         {
-            printf("S ");
+            rows[i].set.length != 0 ? printf("S ") : printf("S");
             printSetContent(rows[i].set.content, rows[i].set.length);
         }
         else if (rows[i].type == REL)
         {
-            printf("R ");
+            rows[i].relation.contentSize != 0 ? printf("R ") : printf("R");
             printRelContent(rows[i].relation.content, rows[i].relation.contentSize);
         }
         else if (rows[i].type == OUT)
@@ -401,64 +406,7 @@ int parseType(Row *row, char *line)
     ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 
-// loads the sets from file and further parses them by calling the parseType function
-// returns FILE_TOO_LONG if there are more than 1000 lines in the file
-// returns EMPTY_FILE if there are no lines in the file
-// returns 1 if everything went ok
-int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRowsCount)
-{
-    int lineCounter = 0;
-    int allocedLineLen = CHUNK;
-    int usedLineLen = 0;
-    char buffer[CHUNK];
-    char *line = (char *)malloc(CHUNK);
-    while (fgets(buffer, CHUNK, fileptr))
-    {
-        if(allocedLineLen <= (usedLineLen+1))
-        {
-            allocedLineLen += CHUNK;
-            line = realloc(line, allocedLineLen);
-            memcpy((line+usedLineLen), buffer, strlen(buffer));
-            usedLineLen = strlen(line);
-        }
-        else
-        {
-            strcpy(&line[usedLineLen], buffer);
-            usedLineLen = strlen(line);
-        }
 
-        if (lineCounter < MAX_NUMBER_OF_ROWS && line[strlen(line) - 1] == '\n')
-        {
-            if(lineCounter == *allocatedRowsCount-1)
-            {
-                *allocatedRowsCount += ROWS_TO_ALLOCATE;
-                *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
-            }
-            if (parseType(&(*rows)[lineCounter], line) != 1)
-            {
-                freeAll(*rows, lineCounter);
-                free(line);
-                return INVALID_ARGUMENT;
-            }
-
-            (*rows)[lineCounter].line = line;
-            line = (char *)malloc(CHUNK);
-            lineCounter++;
-            allocedLineLen = CHUNK;
-            usedLineLen = 0;
-            continue;
-        }
-        else if (lineCounter > MAX_NUMBER_OF_ROWS)
-            ERROR("File is too long", FILE_TOO_LONG);
-
-    }
-    free(line);
-    if (!lineCounter)
-        ERROR("Empty file", EMPTY_FILE)
-
-    *rowsCount = lineCounter;
-    return 1;
-}
 
 //commands for sets
 //is the set empty?
@@ -467,14 +415,15 @@ int setIsEmpty(CommandProperties props, Row **rows)
     int arg = props.arg1-1; //jediny parametr mnozinove operace
     int commandPos = props.arg3; //vystupni hodnota?
 
-    if((*rows)[arg].type == SET)
+    if((*rows)[arg].type == SET || (*rows)[arg].type == UNI)
     {
         (*rows)[commandPos].type = OUT;
         if((*rows)[arg].set.length == 0)
         {
             (*rows)[commandPos].outputValue = true;
         }
-        (*rows)[commandPos].outputValue = false;
+        else
+            (*rows)[commandPos].outputValue = false;
         return 1;
     }
     ERROR("There is no set on this line", INVALID_ARGUMENT);
@@ -485,11 +434,10 @@ int setCard(CommandProperties props, Row **rows)
     int arg = props.arg1-1; //jediny parametr mnozinove operace
     int commandPos = props.arg3; //vystupni hodnota?
 
-    if((*rows)[arg].type == SET)
+    if((*rows)[arg].type == SET || (*rows)[arg].type == UNI)
     {
         (*rows)[commandPos].type = OUT_int;
         int count = (*rows)[arg].set.length;
-        printf("set card count %d",count);
         (*rows)[commandPos].outputValue = count;
         return 1;
     }
@@ -508,33 +456,37 @@ int setContainsString(Set set, char *str){
 // return string array of the complement, dont forget to free() after printing
 int setComplement(CommandProperties props, Row **rows){
     int arg = props.arg1-1; //jediny parametr mnozinove operace
-    if((*rows)[0].type == UNI){
-        Set set = (*rows)[arg].set;
-        Set uni = (*rows)[0].set;
+    if(!props.arg1)
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
 
-        char **ret = (char **)malloc(uni.length * sizeof(char *));
-        int index = 0;//pocet vystupnich prvku
-        for(int i = 0; i < uni.length; i++){ //prochazim prvky universa
-            if(!setContainsString(set, uni.content[i])) //hledam prvek z univerza v mnozine
-            {//kdyz neni prvek v nozine, dam do komplementu
-                ret[index++] = uni.content[i];
+        if((*rows)[0].type == UNI && ((*rows)[arg].type == SET || (*rows)[arg].type == UNI)){
+            Set set = (*rows)[arg].set;
+            Set uni = (*rows)[0].set;
 
+            char **ret = (char **)malloc(uni.length * sizeof(char *));
+            int index = 0;//pocet vystupnich prvku
+            for(int i = 0; i < uni.length; i++){ //prochazim prvky universa
+                if(!setContainsString(set, uni.content[i])) //hledam prvek z univerza v mnozine
+                {//kdyz neni prvek v nozine, dam do komplementu
+                    ret[index++] = uni.content[i];
+
+                }
             }
+            int commandPos = props.arg3; //vystupni hodnota?
+            (*rows)[commandPos].type = SET;
+            (*rows)[commandPos].set.content = ret;
+            (*rows)[commandPos].set.length = index;
+            return 1;
         }
-        int commandPos = props.arg3; //vystupni hodnota?
-        (*rows)[commandPos].type = SET;
-        (*rows)[commandPos].set.content = ret;
-        (*rows)[commandPos].set.length = index;
-        return 1;
-    }
     ERROR("There is no set on this line", INVALID_ARGUMENT); //nedefinovane universum
 }
 int copyContent(char **contentA, char ** contentB, int lenA, int lenB)
 {
+    int len = lenA;
     int newLen = lenA;
    for(int i = 0; i < lenB; i++)
    {
-       contentA[newLen+i] = contentB[i];
+       contentA[len+i] = contentB[i];
        newLen++;
    } 
    return newLen;
@@ -557,20 +509,36 @@ int setUnion(CommandProperties props, Row **rows)
     int newLen = 0;
     Set a = (*rows)[props.arg1-1].set;
     Set b = (*rows)[props.arg2-1].set;
-    char **newSetContent = (char **)malloc((a.length)+(b.length)*sizeof(char*));
-    newLen = copyContent(newSetContent, a.content, newLen, a.length);
-    for(int i = 0; i < b.length; i++)
+    if(!props.arg1 || !props.arg2)
     {
-        if(!contentContainsElement(newSetContent, newLen, b.content[i]))
-        {
-            newSetContent[newLen+i] = b.content[i];
-            newLen++;
-        }
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
     }
-    (*rows)[commandPos].type = SET;
-    (*rows)[commandPos].set.content = newSetContent;
-    (*rows)[commandPos].set.length = newLen;
-    return 1;
+        
+    if((*rows)[props.arg1-1].type == SET && (*rows)[props.arg2-1].type == SET)
+    {
+        char **newSetContent = (char **)malloc((a.length+b.length + 1)*sizeof(char*));
+        if(a.length > 0)
+            newLen = copyContent(newSetContent, a.content, newLen, a.length);
+        else if(b.length > 0)
+        {
+           newLen = copyContent(newSetContent, b.content, newLen, b.length);
+        }
+        int len = newLen;
+        for(int i = 0; i < b.length; i++)
+        {
+            if(a.length > 0)
+                if(!contentContainsElement(newSetContent, newLen, b.content[i]))
+                {
+                    newSetContent[len+i] = b.content[i];
+                    newLen++;
+                }
+        }
+        (*rows)[commandPos].type = SET;
+        (*rows)[commandPos].set.content = newSetContent;
+        (*rows)[commandPos].set.length = newLen;
+        return 1;
+    }
+    ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 
 //return intersect (a && b), dont forget to free() after printing
@@ -581,23 +549,28 @@ int setIntersect(CommandProperties props, Row **rows){
     Set a = (*rows)[arg].set;
     arg = props.arg2-1; //druhy parametr mnozinove operace
     Set b = (*rows)[arg].set;
+    if(!props.arg1 || !props.arg2)
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
+        
+    if((*rows)[props.arg1-1].type == SET && (*rows)[props.arg2-1].type == SET)
+    {
+        char **ret = (char**)malloc(a.length*sizeof(char*)); //predbezna velikost pole je dostatecne velka (delam prunik A B), vysledek bude kratsi
+        int index = 0;
+        for(int i = 0; i < b.length; i++){ //prochazime prvky druhe mnoziny
+            if(setContainsString(a, b.content[i])) //a pro kazdy prvek se ptame, jeslti je v druhe mnozine
+            {
+                ret[index++] = b.content[i]; //kdyz je v obou mnozinach, vlozime.
 
-    char **ret = (char**)malloc(a.length*sizeof(char*)); //predbezna velikost pole je dostatecne velka (delam prunik A B), vysledek bude kratsi
-    int index = 0;
-    for(int i = 0; i < b.length; i++){ //prochazime prvky druhe mnoziny
-        if(setContainsString(a, b.content[i])) //a pro kazdy prvek se ptame, jeslti je v druhe mnozine
-        {
-            ret[index++] = b.content[i]; //kdyz je v obou mnozinach, vlozime.
-
+            }
         }
+        //ret = (char**)realloc(ret, index*(sizeof(char*)));
+        int commandPos = props.arg3; //vystupni hodnota?
+        (*rows)[commandPos].type = SET;
+        (*rows)[commandPos].set.content = ret;
+        (*rows)[commandPos].set.length = index;
+        return 1;
     }
-    //ret = (char**)realloc(ret, index*(sizeof(char*)));
-    int commandPos = props.arg3; //vystupni hodnota?
-    (*rows)[commandPos].type = SET;
-    (*rows)[commandPos].set.content = ret;
-    (*rows)[commandPos].set.length = index;
-    return 1;
-
+    ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 //return a\b
 int setMinus(CommandProperties props, Row **rows){
@@ -606,21 +579,26 @@ int setMinus(CommandProperties props, Row **rows){
     Set a = (*rows)[arg].set;
     arg = props.arg2-1; //druhy parametr mnozinove operace
     Set b = (*rows)[arg].set;
-
-    char **ret = (char**)malloc(a.length*sizeof(char*));
-    int index = 0;
-    for(int i = 0; i < a.length; i++){
-        if(!setContainsString(b, a.content[i]))
-        {
-            ret[index++] = a.content[i];
+    if(!props.arg1 || !props.arg2)
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
+    if((*rows)[props.arg1-1].type == SET && (*rows)[props.arg2-1].type == SET)
+    {
+        char **ret = (char**)malloc(a.length*sizeof(char*));
+        int index = 0;
+        for(int i = 0; i < a.length; i++){
+            if(!setContainsString(b, a.content[i]))
+            {
+                ret[index++] = a.content[i];
+            }
         }
-    }
 
-    int commandPos = props.arg3; //vystupni hodnota
-    (*rows)[commandPos].type = SET;
-    (*rows)[commandPos].set.content = ret;
-    (*rows)[commandPos].set.length = index;
-    return 1;
+        int commandPos = props.arg3; //vystupni hodnota
+        (*rows)[commandPos].type = SET;
+        (*rows)[commandPos].set.content = ret;
+        (*rows)[commandPos].set.length = index;
+        return 1;
+    }
+    ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 //is a subset or equal b
 int setIsSubsetOrEq(CommandProperties props, Row **rows){
@@ -629,46 +607,63 @@ int setIsSubsetOrEq(CommandProperties props, Row **rows){
     int commandPos = props.arg3;
     Set a = (*rows)[arg1].set;
     Set b = (*rows)[arg2].set;
+    if(!props.arg1 || !props.arg2)
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
 
-    for(int i = 0; i < a.length; i++){
-        if(!setContainsString(b, a.content[i]))
-        {  
-            (*rows)[commandPos].outputValue = false;
-            (*rows)[commandPos].type = OUT;
-            return 1;
+    if((*rows)[arg1].type == SET && (*rows)[arg2].type == SET)
+    {
+        for(int i = 0; i < a.length; i++){
+            if(!setContainsString(b, a.content[i]))
+            {  
+                (*rows)[commandPos].outputValue = false;
+                (*rows)[commandPos].type = OUT;
+                return 1;
+            }
         }
+        (*rows)[commandPos].outputValue = true;
+        (*rows)[commandPos].type = OUT;
+        return 1;
     }
-    (*rows)[commandPos].outputValue = true;
-    (*rows)[commandPos].type = OUT;
-    return 1;
+    ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 //is a a subset of b, but not equal to b
 int setIsSubset(CommandProperties props, Row **rows){
     
     Set a = (*rows)[props.arg1-1].set;
     Set b = (*rows)[props.arg2-1].set;
-    if(b.length > a.length)
-        setIsSubsetOrEq(props, rows);
-    else
+    if(!props.arg1 || !props.arg2)
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
+    if((*rows)[props.arg1-1].type == SET && (*rows)[props.arg2-1].type == SET)
     {
-        (*rows)[props.arg3].type = OUT;
-        (*rows)[props.arg3].outputValue = false;    
+        if(b.length > a.length)
+            setIsSubsetOrEq(props, rows);
+        else
+        {
+            (*rows)[props.arg3].type = OUT;
+            (*rows)[props.arg3].outputValue = false;    
+        }
+        return 1;
     }
-    return 1;
+    ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 //are the two sets equal
 int setEquals(CommandProperties props, Row **rows){
     Set a = (*rows)[props.arg1-1].set;
     Set b = (*rows)[props.arg2-1].set;
-    if(a.length == b.length)
-        setIsSubsetOrEq(props, rows);
-    else
+    if(!props.arg1 || !props.arg2)
+        ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
+    if((*rows)[props.arg1-1].type == SET && (*rows)[props.arg2-1].type == SET)
     {
-        (*rows)[props.arg3].type = OUT;
-        (*rows)[props.arg3].outputValue = false;    
+        if(a.length == b.length)
+            setIsSubsetOrEq(props, rows);
+        else
+        {
+            (*rows)[props.arg3].type = OUT;
+            (*rows)[props.arg3].outputValue = false;    
+        }
+        return 1;
     }
-    return 1;
-    
+    ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 
 const Command commandList[NUMBER_OF_COMMANDS] = 
@@ -700,7 +695,7 @@ int executeCommands(Row **rows, int rowsCount)
                         //printf("Spoustim \n");
                         int arg1 = (*rows)[i].command.arg1-1;
                         //int arg2 = rows[i].command.arg2;
-                        if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET)
+                        if((*rows)[arg1].type == REL || (*rows)[arg1].type == SET || (*rows)[arg1].type == UNI)
                         {
 
                             (*rows)[i].command.arg3 = i;
@@ -715,6 +710,160 @@ int executeCommands(Row **rows, int rowsCount)
     }
     return 1;
 }
+int checkSet(Set set)
+{
+    for(int i = 0; i < NUMBER_OF_COMMANDS; i++)
+    {
+        if(setContainsString(set, commandList[i].name))
+        {
+            ERROR("Invalid argument", INVALID_ARGUMENT);
+        }
+    }
+    if(setContainsString(set, "true") || setContainsString(set, "false"))
+        ERROR("Invalid argument", INVALID_ARGUMENT);
+
+    return 1;
+}
+int checkSetElementLen(Set set)
+{
+    for(int i = 0; i < set.length; i++)
+    {
+        if(strlen(set.content[i]) > MAX_ELEMENT_LENGTH)
+            ERROR("Element too long", INVALID_ARGUMENT);
+    }
+    return checkSet(set);
+}
+int isSet(Set set)
+{
+    for(int i = 0; i < set.length; i++)
+    {
+        for(int j = (i+1); j < set.length; j++)
+        {
+            if(!strcmp(set.content[j], set.content[i]))
+                ERROR("Not a set", INVALID_ARGUMENT);
+        }
+    }
+    return checkSetElementLen(set);
+}
+int setSubsetOfUni(Set uni, Set set)
+{
+    for(int i = 0; i < set.length; i++)
+    {
+        if(!setContainsString(uni, set.content[i]))
+            ERROR("Set is not subset of universe", INVALID_ARGUMENT);
+    }
+    return isSet(set);
+}
+
+int checkRel(Relation rel)
+{
+    for(int i = 0; i < rel.contentSize; i++)
+    {
+        for(int j = 0; i < MAX_NUMBER_OF_ROWS; j++)
+        {
+            if(!strcmp(commandList[j].name, rel.content->first) || !strcmp(commandList[j].name, rel.content->second))
+                ERROR("Relation cannot contain command identificator", INVALID_ARGUMENT);
+        }
+    }
+    if(!strcmp(rel.content->first, "true")||!strcmp(rel.content->first, "false"))
+        ERROR("Relation cannot contain function output", INVALID_ARGUMENT);
+
+    if(!strcmp(rel.content->second, "true")||!strcmp(rel.content->second, "false"))
+        ERROR("Relation cannot contain function output", INVALID_ARGUMENT);
+
+    return 1;
+}
+int relContainsOnlyUniElements(Set uni, Relation rel)
+{
+    for(int i = 0; i < rel.contentSize; i++)
+    {
+        if(setContainsString(uni, rel.content->first) && setContainsString(uni, rel.content->first))
+            ERROR("All elements of relation must be from defined universe", INVALID_ARGUMENT);
+    }
+    return checkRel(rel);
+}
+int checkRows(Row *rows, int rowCount)
+{
+    if(rows[0].type != UNI)
+    {
+        ERROR("The first line is not defined as a universe", INVALID_ARGUMENT);
+    }
+    for(int i = 0; i < rowCount; i++)
+    {
+        if(rows[i].type == SET || rows[i].type == UNI)
+        {
+            int retVal = setSubsetOfUni(rows[0].set,rows[i].set);
+            if(retVal != 1)
+                return retVal;
+        }
+        if(rows[i].type == REL)
+        {
+            int retVal = relContainsOnlyUniElements(rows[0].set, rows[i].relation);
+            if(retVal != 1)
+                return retVal;
+        }
+    }
+    return 1;
+}
+
+// loads the sets from file and further parses them by calling the parseType function
+// returns FILE_TOO_LONG if there are more than 1000 lines in the file
+// returns EMPTY_FILE if there are no lines in the file
+// returns 1 if everything went ok
+int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRowsCount)
+{
+    int lineCounter = 0;
+    int allocedLineLen = MAX_ELEMENT_LENGTH;
+    int usedLineLen = 0;
+    char buffer[MAX_ELEMENT_LENGTH];
+    char *line = (char *)malloc(MAX_ELEMENT_LENGTH);
+    while (fgets(buffer, MAX_ELEMENT_LENGTH, fileptr))
+    {
+        if(allocedLineLen <= (usedLineLen+1))
+        {
+            allocedLineLen += MAX_ELEMENT_LENGTH;
+            line = realloc(line, allocedLineLen);
+            memcpy((line+usedLineLen), buffer, strlen(buffer));
+            usedLineLen = strlen(line);
+        }
+        else
+        {
+            strcpy(&line[usedLineLen], buffer);
+            usedLineLen = strlen(line);
+        }
+
+        if (lineCounter < MAX_NUMBER_OF_ROWS && line[strlen(line) - 1] == '\n')
+        {
+            if(lineCounter == *allocatedRowsCount-1)
+            {
+                *allocatedRowsCount += ROWS_TO_ALLOCATE;
+                *rows = realloc(*rows, *allocatedRowsCount * sizeof(Row));
+            }
+            if (parseType(&(*rows)[lineCounter], line) != 1)
+            {
+                freeAll(*rows, lineCounter);
+                free(line);
+                return INVALID_ARGUMENT;
+            }
+
+            (*rows)[lineCounter].line = line;
+            line = (char *)malloc(MAX_ELEMENT_LENGTH);
+            lineCounter++;
+            allocedLineLen = MAX_ELEMENT_LENGTH;
+            usedLineLen = 0;
+            continue;
+        }
+        else if (lineCounter > MAX_NUMBER_OF_ROWS)
+            ERROR("File is too long", FILE_TOO_LONG);
+
+    }
+    free(line);
+    if (!lineCounter)
+        ERROR("Empty file", EMPTY_FILE)
+
+    *rowsCount = lineCounter;
+    return checkRows(*rows, *rowsCount);
+}
 
 int main(int argc, char **argv)
 {
@@ -723,6 +872,7 @@ int main(int argc, char **argv)
     int allocatedRowsCount = ROWS_TO_ALLOCATE;
     int rowsCount = 0;
     char *filename = {'\0'};
+    int retVal = 0;
     FILE *file = NULL;
 
     if (parseArgs(argc, argv, &filename) == NOT_ENOUGH_ARGUMENTS)
@@ -733,10 +883,18 @@ int main(int argc, char **argv)
 
     if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) != 1)
         return EMPTY_FILE;
-    if(executeCommands(&rows, rowsCount) == 1)
+    retVal = executeCommands(&rows, rowsCount);
+    if( retVal == 1)
     {
         print(rows, rowsCount);
     }
+    else
+    {
+        freeAll(rows, rowsCount);
+        fclose(file);
+        return retVal;
+    }    
+    
 
     freeAll(rows, rowsCount);
     fclose(file);

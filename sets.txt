@@ -4,4 +4,4 @@ S x y z
 S x
 S a b c
 S x y z
-C equals 3 5
+C empty 2
