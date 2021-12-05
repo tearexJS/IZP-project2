@@ -6,7 +6,7 @@
 
 #define MAX_NUMBER_OF_ROWS 1000
 #define ROWS_TO_ALLOCATE 3
-#define CHUNK 30
+#define MAX_ELEMENT_LENGTH 30
 #define NUMBER_OF_COMMANDS 19
 
 #define NOT_ENOUGH_ARGUMENTS 2
@@ -30,7 +30,8 @@ enum StateRelation
     readFirstElement,
     waitForSecondElement,
     readSecondElement,
-    waitForRParentheses
+    waitForRParentheses,
+    emptyRel
 };
 enum StateSet
 {
@@ -83,8 +84,7 @@ typedef struct
         Set set;
         Relation relation;
         CommandProperties command;
-        char outputValue;
-        //int outputCountElements; // zmena, pocet prvku
+        int outputValue;
     };
     char *line;
 } Row;
@@ -95,7 +95,7 @@ typedef struct
     int (*func)(CommandProperties, Row **);
     int argc;
 } Command;
-
+// replacing ' ' and ) with \0
 void replaceSpaceWithZero(char *line)
 {
     for(int i = 0; line[i] != '\0'; i++)
@@ -104,7 +104,7 @@ void replaceSpaceWithZero(char *line)
             line[i] = '\0';
     }
 }
-
+// converting string to int
 int strToInt(char *str)
 {
     char *endptr;
@@ -115,6 +115,7 @@ int strToInt(char *str)
     }
     return -1;
 }
+// printing sets
 void printSetContent(char **content, int length)
 {
     if(length > 0)
@@ -129,6 +130,7 @@ void printSetContent(char **content, int length)
     }
     printf("\n");
 }
+// printing relations
 void printRelContent(Pair *pair, int pairCount)
 {
     for(int i = 0; i < pairCount; i++)
@@ -140,6 +142,7 @@ void printRelContent(Pair *pair, int pairCount)
     }
     printf("\n");
 }
+// printing the rows
 void print(Row *rows, int rowsCount)
 {
     for(int i = 0; i < rowsCount; i++)
@@ -176,6 +179,7 @@ void print(Row *rows, int rowsCount)
         }
     }
 }
+// parsing the input arguments
 int parseArgs(int argc, char **argv, char **filename)
 {
     (void)filename;
@@ -281,7 +285,7 @@ int parseRelation(Row *row, char *line)
 {
     int pairCount = 1;
     Pair *pair = (Pair *)malloc(pairCount * sizeof(Pair));
-    int iter = 2; // to begin at the first element of the relation
+    int iter = 1; // to begin at the first element of the relation
 
     enum StateRelation state = waitForLParentheses;
     while(line[iter] != '\n')
@@ -329,7 +333,7 @@ int parseRelation(Row *row, char *line)
             if(isalnum(line[iter]))
             {
                 pair[pairCount-1].second = &line[iter];
-                state = waitForRParentheses; // signalit to expect ) in the next interation
+                state = waitForRParentheses; // signaling to expect ) in the next interation
             }
         }
         else if (state == waitForRParentheses)
@@ -418,7 +422,7 @@ int parseType(Row *row, char *line)
 int setIsEmpty(CommandProperties props, Row **rows)
 {
     int arg = props.arg1-1; //jediny parametr mnozinove operace
-    int commandPos = props.arg3; //vystupni hodnota?
+    int commandPos = props.arg3; //vystupni hodnota
 
     if((*rows)[arg].type == SET || (*rows)[arg].type == UNI)
     {
@@ -490,7 +494,7 @@ int setComplement(CommandProperties props, Row **rows){
 
                 }
             }
-            int commandPos = props.arg3; //vystupni hodnota?
+            int commandPos = props.arg3; //vystupni hodnota
             (*rows)[commandPos].type = SET;
             (*rows)[commandPos].set.content = ret;
             (*rows)[commandPos].set.length = index;
@@ -591,11 +595,12 @@ int setIntersect(CommandProperties props, Row **rows){
     ERROR("Invalid argument", INVALID_ARGUMENT);
 }
 //return a\b
+// 
 int setMinus(CommandProperties props, Row **rows){
     int arg;
-    arg = props.arg1-1; //prvni parametr mnozinove operace
+    arg = props.arg1-1; //first param of the function
     Set a = (*rows)[arg].set;
-    arg = props.arg2-1; //druhy parametr mnozinove operace
+    arg = props.arg2-1; //second
     Set b = (*rows)[arg].set;
     if(!props.arg1 || !props.arg2)
         ERROR("Not enough arguments", NOT_ENOUGH_ARGUMENTS);
@@ -610,7 +615,7 @@ int setMinus(CommandProperties props, Row **rows){
             }
         }
 
-        int commandPos = props.arg3; //vystupni hodnota
+        int commandPos = props.arg3; //output value
         (*rows)[commandPos].type = SET;
         (*rows)[commandPos].set.content = ret;
         (*rows)[commandPos].set.length = index;
@@ -618,7 +623,10 @@ int setMinus(CommandProperties props, Row **rows){
     }
     ERROR("Invalid argument", INVALID_ARGUMENT);
 }
-//is a subset or equal b
+//is A subset or equal B
+// returns 1 if everything went ok
+// returns NOT_ENOUGH_ARGUMENTS if there were less than required args
+// returns INVALID_ARGUMENT if the given lines are not sets 
 int setIsSubsetOrEq(CommandProperties props, Row **rows){
     int arg1 = props.arg1-1;
     int arg2 = props.arg2-1;
@@ -852,7 +860,8 @@ Set findRelationDomain(Relation relation)
     {
         if (!setContainsString(domain, relation.content[i].first))
         {
-            domain.content[domain.length] = (char *)malloc(CHUNK * sizeof(char));
+            domain.content[domain.length] = (char *)malloc(MAX_ELEMENT_LENGTH
+         * sizeof(char));
             strcpy(domain.content[domain.length], relation.content[i].first);
             domain.length++;
         }
@@ -889,7 +898,8 @@ Set findRelationCodomain(Relation relation)
     {
         if (!setContainsString(codomain, relation.content[i].second))
         {
-            codomain.content[codomain.length] = (char *)malloc(CHUNK * sizeof(char));
+            codomain.content[codomain.length] = (char *)malloc(MAX_ELEMENT_LENGTH
+         * sizeof(char));
             strcpy(codomain.content[codomain.length], relation.content[i].second);
             codomain.length++;
         }
@@ -952,17 +962,7 @@ int relationIsInjective(CommandProperties props, Row **rows) // (Relation *relat
     }
     ERROR("There is no relation or set on this line", INVALID_ARGUMENT);
 }
-bool setsEqual(Set a, Set b)
-{
-    for(int i = 0; i < a.length; i++){
-        if(!setContainsString(b, a.content[i]))
-        {
-            return false;
-        }
-    }
-    if(a.length == b.length) return true;
-    else return false;
-}
+
 // returns true if relation is surjective, otherwise returns false
 int relationIsSurjective(CommandProperties props, Row **rows)
 {
@@ -989,6 +989,8 @@ int relationIsSurjective(CommandProperties props, Row **rows)
         }
         if (surjectivity)
             (*rows)[commandPos].outputValue = true;
+        else
+            (*rows)[commandPos].outputValue = false;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
@@ -1030,13 +1032,18 @@ int relationIsBijective(CommandProperties props, Row **rows)
             }
 
         }
+        if(!(*rows)[arg1].relation.contentSize && arg2 != arg3)
+        {
+            (*rows)[commandPos].outputValue = false;
+            bijectivity = false;
+        }
         if (bijectivity)
             (*rows)[commandPos].outputValue = true;
         return 1;
     }
     ERROR("There is no relation on this line", INVALID_ARGUMENT);
 }
-
+// const Command array where function pointers are stored
 const Command commandList[NUMBER_OF_COMMANDS] = 
 {
     {"empty", setIsEmpty, 1},
@@ -1064,7 +1071,7 @@ const Command commandList[NUMBER_OF_COMMANDS] =
 // loops through the const array where the func pointers are stored and executes the command which needs to be executed
 // returns the received value from the called function when something went wrong
 // returns 1 if everything went ok
-int executeCommands(Row **rows, int *rowsCount, int *allocatedRowsCount)
+int executeCommands(Row **rows, int rowsCount)
 {
     for(int i = 0; i < rowsCount; i++)
     {
@@ -1074,8 +1081,17 @@ int executeCommands(Row **rows, int *rowsCount, int *allocatedRowsCount)
                 {
                     if(!strcmp(commandList[j].name, (*rows)[i].command.name))
                     {
-                        if(commandList[j].argc <= 2) (*rows)[i].command.arg3 = i;
-                        else (*rows)[i].command.arg4 = i;
+                        if(commandList[j].argc <= 2)
+                        {
+                            if((*rows)[i].command.arg3)
+                                ERROR("Too many arguments", TOO_MANY_ARGUMENTS);
+                            (*rows)[i].command.arg3 = i;
+                        } 
+                        
+                        else 
+                        {
+                            (*rows)[i].command.arg4 = i;
+                        }
                         int recVal = commandList[j].func((*rows)[i].command, rows);
                         if(recVal != 1)
                             return recVal;
@@ -1085,6 +1101,7 @@ int executeCommands(Row **rows, int *rowsCount, int *allocatedRowsCount)
     }
     return 1;
 }
+// checking if the set contains reserved phrases
 int checkSet(Set set)
 {
     for(int i = 0; i < NUMBER_OF_COMMANDS; i++)
@@ -1099,6 +1116,7 @@ int checkSet(Set set)
 
     return 1;
 }
+// checking if all emelents are at most MAX_ELEMENT_LENGTH long
 int checkSetElementLen(Set set)
 {
     for(int i = 0; i < set.length; i++)
@@ -1108,6 +1126,7 @@ int checkSetElementLen(Set set)
     }
     return checkSet(set);
 }
+// checking the set to find out if it doesn't contain the same element twice
 int isSet(Set set)
 {
     for(int i = 0; i < set.length; i++)
@@ -1120,6 +1139,7 @@ int isSet(Set set)
     }
     return checkSetElementLen(set);
 }
+// checking the set to find out if it is a subset of universe
 int setSubsetOfUni(Set uni, Set set)
 {
     for(int i = 0; i < set.length; i++)
@@ -1129,34 +1149,39 @@ int setSubsetOfUni(Set uni, Set set)
     }
     return isSet(set);
 }
-
+// checking the relation if it doesn't contain reserved strings
 int checkRel(Relation rel)
 {
     for(int i = 0; i < rel.contentSize; i++)
     {
-        for(int j = 0; i < MAX_NUMBER_OF_ROWS; j++)
+        for(int j = 0; j < NUMBER_OF_COMMANDS; j++)
         {
-            if(!strcmp(commandList[j].name, rel.content->first) || !strcmp(commandList[j].name, rel.content->second))
+            if(!strcmp(commandList[j].name, rel.content[i].first) || !strcmp(commandList[j].name, rel.content[i].second))
                 ERROR("Relation cannot contain command identificator", INVALID_ARGUMENT);
+
+            if(!strcmp(rel.content[i].first, "true") || !strcmp(rel.content[i].first, "false"))
+                ERROR("Relation cannot contain function output", INVALID_ARGUMENT);
+
+            if(!strcmp(rel.content[i].second, "true") || !strcmp(rel.content[i].second, "false"))
+                ERROR("Relation cannot contain function output", INVALID_ARGUMENT);
         }
     }
-    if(!strcmp(rel.content->first, "true")||!strcmp(rel.content->first, "false"))
-        ERROR("Relation cannot contain function output", INVALID_ARGUMENT);
 
-    if(!strcmp(rel.content->second, "true")||!strcmp(rel.content->second, "false"))
-        ERROR("Relation cannot contain function output", INVALID_ARGUMENT);
 
     return 1;
 }
+// checking the relations content to find out if all elements are from universe
 int relContainsOnlyUniElements(Set uni, Relation rel)
 {
     for(int i = 0; i < rel.contentSize; i++)
     {
-        if(setContainsString(uni, rel.content->first) && setContainsString(uni, rel.content->first))
+        if(!setContainsString(uni, rel.content[i].first) || !setContainsString(uni, rel.content[i].second))
             ERROR("All elements of relation must be from defined universe", INVALID_ARGUMENT);
     }
     return checkRel(rel);
 }
+
+// checking the rows to find out if they contain valid sets and relations
 int checkRows(Row *rows, int rowCount)
 {
     if(rows[0].type != UNI)
@@ -1216,7 +1241,6 @@ int loadSetsFromFile(Row **rows, FILE *fileptr, int *rowsCount, int *allocatedRo
             }
             if (parseType(&(*rows)[lineCounter], line) != 1)
             {
-                freeAll(*rows, lineCounter);
                 free(line);
                 return INVALID_ARGUMENT;
             }
@@ -1255,9 +1279,13 @@ int main(int argc, char **argv)
 
     if (openFile(&file, filename) == CANNOT_OPEN_FILE)
         return CANNOT_OPEN_FILE;
-
-    if (loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount) != 1)
-        return EMPTY_FILE;
+    retVal = loadSetsFromFile(&rows, file, &rowsCount, &allocatedRowsCount);
+    if (retVal != 1)
+    {
+        freeAll(rows, rowsCount);
+        fclose(file);
+        return retVal;
+    }
     retVal = executeCommands(&rows, rowsCount);
     if( retVal == 1)
     {
