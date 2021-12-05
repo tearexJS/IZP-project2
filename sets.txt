@@ -3,4 +3,5 @@ S
 S x y z
 S x
 S a b c
-C empty 2
+S x y z
+C equals 3 5
